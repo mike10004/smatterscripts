@@ -12,11 +12,9 @@
 import os
 import re
 import ooutils
-
+import sys
 import uno
 from com.sun.star.task import ErrorCodeIOException
-
-
 
 class SSConverter:
     """
@@ -60,7 +58,7 @@ class SSConverter:
         match = re.search(r'^(.*)[@:](.*)$', inputFile)
         if os.path.exists(inputFile) or not match:
             inputUrl   = uno.systemPathToFileUrl(os.path.abspath(inputFile))
-            inputSheet = '1'   # Convert fist sheet.
+            inputSheet = '1'   # Convert first sheet.
         else:
             inputUrl   = uno.systemPathToFileUrl(os.path.abspath(match.group(1)))
             inputSheet = match.group(2)
@@ -139,30 +137,25 @@ class SSConverter:
         finally:
             if document: document.close(True)
 
+_ERR_PROCESSING = 2
 
 if __name__ == "__main__":
     from sys import argv
     from os.path import isfile
-
+    from argparse import ArgumentParser
     if len(argv) == 2  and  argv[1] == '--shutdown':
         ooutils.oo_shutdown_if_running()
     else:
-        if len(argv) < 3  or  len(argv) % 2 != 1:
-            print "USAGE:"
-            print "  python %s INPUT-FILE[:SHEET] OUTPUT-FILE ..." % argv[0]
-            print "OR"
-            print "  python %s --shutdown" % argv[0]
-            exit(255)
-
+        p = ArgumentParser(description="Export spreadsheet worksheets to CSV files.", epilog="Use --shutdown to shut down running instance.")
+        p.add_argument("input", metavar="INPUT[:SHEET]", help="input file, optionally with single sheet specification")
+        p.add_argument("output", metavar="OUTPUT[%s|%d].csv", help="output file")
+        p.add_argument("-v", "--verbose", action="store_true", help="print messages about processing")
+        p.add_argument("--shutdown", action="store_true", help="shut down running instance")
+        args = p.parse_args()
+        if args.shutdown: p.error("--shutdown must be only option, with no positional arguments")
+        converter = SSConverter()
         try:
-            i = 1
-            converter = SSConverter()
-
-            while i+1 < len(argv):
-                print '%s => %s' % (argv[i], argv[i+1])
-                converter.convert(argv[i], argv[i+1], True)
-                i += 2
-
+            converter.convert(args.input, args.output, args.verbose)
         except ErrorCodeIOException, exception:
-            print "ERROR! ErrorCodeIOException %d" % exception.ErrCode
-            exit(1)
+            print >> sys.stderr, "ERROR! ErrorCodeIOException %d" % exception.ErrCode
+            exit(_ERR_PROCESSING)

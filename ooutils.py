@@ -19,6 +19,7 @@ OPENOFFICE_PORT = 8100
 _oopaths=(
     ('/usr/lib64/ooo-2.0/program',     '/usr/lib64/ooo-2.0/program'),
     ('/opt/openoffice.org3/program',   '/opt/openoffice.org/basis3.1/program'),
+    ('/usr/lib/libreoffice/program',   '/usr/lib/libreoffice/program')
 )
 
 for p in _oopaths:
@@ -96,11 +97,11 @@ class OORunner:
         Start a headless instance of OpenOffice.
         """
         args = [OPENOFFICE_BIN,
-                '-accept=socket,host=localhost,port=%d;urp;StarOffice.ServiceManager' % self.port,
-                '-norestore',
-                '-nofirststartwizard',
-                '-nologo',
-                '-headless',
+                '--accept=socket,host=localhost,port=%d;urp;StarOffice.ServiceManager' % self.port,
+                '--norestore',
+                '--nofirststartwizard',
+                '--nologo',
+                '--headless',
                 ]
         env  = {'PATH'       : '/bin:/usr/bin:%s' % OPENOFFICE_PATH,
                 'PYTHONPATH' : OPENOFFICE_LIBPATH,
