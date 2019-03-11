@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Convert spreadsheet to CSV file.
 #
@@ -11,10 +11,15 @@
 
 import os
 import re
-import ooutils
+from . import ooutils
 import sys
 import uno
-from com.sun.star.task import ErrorCodeIOException
+try:
+    from com.sun.star.task import ErrorCodeIOException
+except ImportError:
+    print("ooutils: python3-uno must be installed", file=sys.stderr)
+    raise
+
 
 class SSConverter:
     """
@@ -24,7 +29,7 @@ class SSConverter:
 
     def __init__(self, oorunner=None):
         self.desktop  = None
-        self.oorunner = None
+        self.oorunner = oorunner
 
 
     def convert(self, inputFile, outputFile, verbose=False):
@@ -117,7 +122,8 @@ class SSConverter:
                     else:
                         ofile = outputFile % sheet.getName().replace(' ', '_')
 
-                    if verbose: print "    %s" % ofile
+                    if verbose:
+                        print("    %s" % ofile)
 
                     # Save the sheet to the output file.
                     outputUrl = uno.systemPathToFileUrl(os.path.abspath(ofile))
@@ -139,9 +145,8 @@ class SSConverter:
 
 _ERR_PROCESSING = 2
 
-if __name__ == "__main__":
+def main():
     from sys import argv
-    from os.path import isfile
     from argparse import ArgumentParser
     if len(argv) == 2  and  argv[1] == '--shutdown':
         ooutils.oo_shutdown_if_running()
@@ -156,6 +161,11 @@ if __name__ == "__main__":
         converter = SSConverter()
         try:
             converter.convert(args.input, args.output, args.verbose)
-        except ErrorCodeIOException, exception:
-            print >> sys.stderr, "ERROR! ErrorCodeIOException %d" % exception.ErrCode
-            exit(_ERR_PROCESSING)
+        except ErrorCodeIOException as exception:
+            print("ERROR! ErrorCodeIOException %d" % exception.ErrCode, file=sys.stderr)
+            return _ERR_PROCESSING
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())

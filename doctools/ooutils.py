@@ -35,9 +35,12 @@ for p in _oopaths:
 
 
 import uno
-from com.sun.star.beans import PropertyValue
-from com.sun.star.connection import NoConnectException
-
+try:
+    from com.sun.star.beans import PropertyValue
+    from com.sun.star.connection import NoConnectException
+except ImportError:
+    print("ooutils: python3-uno must be installed", file=sys.stderr)
+    raise
 
 class OORunner:
     """
@@ -68,9 +71,9 @@ class OORunner:
 
             # If first connect failed then try starting OpenOffice.
             if n == 0:
-            	# Exit loop if startup not desired.
-            	if no_startup:
-            		 break
+                # Exit loop if startup not desired.
+                if no_startup:
+                     break
                 self.startup()
                 did_start = True
 
@@ -79,12 +82,12 @@ class OORunner:
             n += 1
 
         if not context:
-            raise Exception, "Failed to connect to OpenOffice on port %d" % self.port
+            raise Exception("Failed to connect to OpenOffice on port %d" % self.port)
 
         desktop = context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", context)
 
         if not desktop:
-            raise Exception, "Failed to create OpenOffice desktop on port %d" % self.port
+            raise Exception("Failed to create OpenOffice desktop on port %d" % self.port)
 
         if did_start:
             _started_desktops[self.port] = desktop
@@ -109,11 +112,12 @@ class OORunner:
 
         try:
             pid = os.spawnve(os.P_NOWAIT, args[0], args, env)
-        except Exception, e:
-            raise Exception, "Failed to start OpenOffice on port %d: %s" % (self.port, e.message)
+        except Exception as e:
+            print(e, file=sys.stderr)
+            raise Exception("Failed to start OpenOffice on port %d" % self.port)
 
         if pid <= 0:
-            raise Exception, "Failed to start OpenOffice on port %d" % self.port
+            raise Exception("Failed to start OpenOffice on port %d" % self.port)
 
 
     def shutdown(self):
@@ -124,7 +128,7 @@ class OORunner:
             if _started_desktops.get(self.port):
                 _started_desktops[self.port].terminate()
                 del _started_desktops[self.port]
-        except Exception, e:
+        except Exception:
             pass
 
 
@@ -138,7 +142,7 @@ def _shutdown_desktops():
         try:
             if desktop:
                 desktop.terminate()
-        except Exception, e:
+        except Exception:
             pass
 
 
@@ -151,7 +155,7 @@ def oo_shutdown_if_running(port=OPENOFFICE_PORT):
     try:
         desktop = oorunner.connect(no_startup=True)
         desktop.terminate()
-    except Exception, e:
+    except Exception:
         pass
 
 
