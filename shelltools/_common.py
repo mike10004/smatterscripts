@@ -6,14 +6,20 @@
 
 import sys
 import logging
+import argparse
 
-_LOG_LEVEL_CHOICES=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'),
 
-def parse_args_with_logging(parser):
+_log = logging.getLogger(__name__)
+_LOG_LEVEL_CHOICES=('DEBUG', 'INFO', 'WARNING', 'ERROR'),
+NULLCHAR = "\0"
+
+
+def parse_args_with_logging(parser: argparse.ArgumentParser):
+    assert isinstance(parser, argparse.ArgumentParser), "optparse is not longer supported"
     add_logging_options(parser)
-    options, args = parser.parse_args()
-    config_logging(options)
-    return options, args
+    args = parser.parse_args()
+    config_logging(args)
+    return args
 
 def add_log_level_option(parser, default_level='INFO'):
     """DEPRECATED: use add_logging_options instead.
@@ -35,31 +41,26 @@ def config_logging(options):
     must be one that was created from a parser passed to the
     add_log_level_option function.
     """
-    logging.basicConfig(logfile=options.logfile, level=options.log_level)    
+    try:
+        level = logging.__dict__[options.log_level]
+    except KeyError:
+        print("_common: error parsing log level", file=sys.stderr)
+        level = logging.INFO
+    logging.basicConfig(level=level, logfile=options.log_file)
 
-def add_logging_options(parser):
+def add_logging_options(parser: argparse.ArgumentParser):
     """Add log destination and log level options to a parser. The log 
     level option sets the log_level attribute of the options object
     returned by parser.parse_args() to a logging.LEVEL value (not a 
     string), and has default value logging.INFO.
     """
-    parser.add_option("-L", "--logfile", dest="logfile",
-                        metavar="PATHNAME",
-                        action="store",
-                        help="print log messages to specified file instead" + 
-                        " of standard error")
-    parser.add_option("-l", "--log-level", dest="log_level",
+    parser.add_argument("-L", "--log-file",
+                        metavar="FILE",
+                        help="print log messages to file")
+    parser.add_argument("-l", "--log-level", dest="log_level",
                         metavar="LEVEL",
-                        nargs=1,
-                        action="callback",
-                        type="str",
-                        callback=_eval_level,
-                        help="set log level to one of " + 
-                            str(_LOG_LEVEL_CHOICES))
-    parser.set_defaults(log_level=logging.INFO)
-
-def _eval_level(option, opt_str, value, parser):
-    parser.values.log_level = eval('logging.' + value)
+                        default='INFO',
+                        help="set log level to one of " + str(_LOG_LEVEL_CHOICES))
 
 def add_output_option(parser, shortopt="-o", longopt="--output"):
     """Adds an -o/--output option to a parser with a single string
@@ -68,22 +69,16 @@ def add_output_option(parser, shortopt="-o", longopt="--output"):
     parser.add_option(shortopt, longopt, 
                     dest="output",
                     action="store",
-                    metavar="PATHNAME",
-                    help="write output to PATHNAME")
+                    metavar="FILE",
+                    help="write output to FILE")
 
-def add_sort_option(parser, shortopt="-s", longopt="--sort", 
-                    help="perform sorting"):
+def add_sort_option(parser, shortopt="-s", longopt="--sort", arg_help="perform sorting"):
     """Adds a -s/--sort option to a parser that stores a True/False
     value in the options.sort attribute."""
-    parser.add_option(shortopt, longopt,
-                    dest="sort",
-                    action="store_true",
-                    help=help)
-    parser.set_defaults(sort=False)
-    
-NULLCHAR = "\0"
+    parser.add_option(shortopt, longopt, action="store_true", help=arg_help)
 
-class NullTerminatedInput():
+
+class NullTerminatedInput(object):
     """An iterator over null-terminated lines (terminated by '\0') in
     a file. File must be opened before construction and should be 
     closed by the caller afterward.
@@ -121,22 +116,23 @@ class NullTerminatedInput():
 #            self.log.debug(" len(buff) now %d; returning str with len=%d", len(self.buff), len(nextstr))
             return nextstr
         # invariant: buff contains no null-term chars
-        bytes = ''
+        my_bytes = ''
         bysplitpt = -1
         while bysplitpt < 0:
-            bytes = self.ifile.read(self.sizehint)
+            my_bytes = self.ifile.read(self.sizehint)
 #            self.log.debug(" read %d bytes from file",  len(bytes))
-            if len(bytes) == 0: break # ...and return what's in buff, or if len(buff)==0 then StopIteration
-            self.buff += bytes # implied else: len(bytes) > 0
-            bysplitpt = bytes.find(NULLCHAR)
+            if len(my_bytes) == 0:
+                break # ...and return what's in buff, or if len(buff)==0 then StopIteration
+            self.buff += my_bytes # implied else: len(bytes) > 0
+            bysplitpt = my_bytes.find(NULLCHAR)
 #            self.log.debug(" bysplitpt=%d; len(buff)=%d",  bysplitpt,  len(self.buff))
         # invariant: (bysplitpt >= 0 and len(bytes) > 0) or (len(bytes)==0)
 #        self.log.debug(" post-loop: bysplitpt=%d, len(bytes)=%d",  bysplitpt,  len(bytes))
-        if len(bytes) == 0:
+        if len(my_bytes) == 0:
             if len(self.buff) == 0: raise StopIteration()
             else: return self.buff
-        # invariant: bysplitpt >= 0 and len(bytes) > 0
-        prevbufflen = len(self.buff) - len(bytes)
+        # invariant: bysplitpt >= 0 and len(my_bytes) > 0
+        prevbufflen = len(self.buff) - len(my_bytes)
         nextstr = self.buff[:prevbufflen + bysplitpt]
         self.buff = self.buff[prevbufflen + bysplitpt + 1:]
 #        self.log.debug(" returning str with len=%d; len(buff)=%d",  len(nextstr),  len(self.buff))

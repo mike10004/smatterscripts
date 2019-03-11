@@ -1,25 +1,26 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 #  (c) 2015 Mike Chaberski
 #  
 #  MIT License
 
-import sys;
-import os;
-import logging;
+import sys
+import os
+import logging
 
 LOG_FILENAME = '/tmp/py-findfiles.log'
 
 def print_pathnames(topdir=os.getcwd(), outfile=sys.stdout, recursive=True, dry_run=False):
     logging.debug("print_pathnames: topdir=%s, outfile=%s (%s), recursive=%s, dry_run=%s", topdir, outfile, os.path.abspath(outfile.name), recursive, dry_run)
-    if (dry_run == False):
+    if not dry_run:
         for root, dirs, files in os.walk(topdir):
             for filename in files:
-                if (filename[0] != '.'):
-                    print >> outfile, os.path.join(root, filename);
+                if filename[0] != '.':
+                    print(os.path.join(root, filename), file=outfile)
             if recursive:
                 for subdir in dirs:
-                    print_pathnames(subdir, outfile);
+                    print_pathnames(subdir, outfile)
+
 
 def parse_args():
     """ Parses command line arguments to script.
@@ -58,7 +59,7 @@ def parse_args():
     parser.add_option("-d", "--dry-run", dest="dry_run", action="store_true")
     
     #parser.set_defaults(recursive=True, topdir=os.getcwd(), write_mode='w', dry_run=False);
-    parser.set_defaults(recursive=True, topdir=os.getcwd(), dry_run=False);
+    parser.set_defaults(recursive=True, topdir=os.getcwd(), dry_run=False)
     (options, args) = parser.parse_args()
     
     if len(args) == 0:
@@ -75,7 +76,7 @@ def parse_args():
         pathname2 = args[1]
         if os.path.isdir(pathname1):
             options.topdir = pathname1
-            if ((os.path.exists(pathname2) == False) or os.path.isfile(pathname2)):
+            if (os.path.exists(pathname2) == False) or os.path.isfile(pathname2):
                 options.outpathname = pathname2
             else:
                 parser.error("invalid argument: " + pathname2 + " must not be a directory")
@@ -85,7 +86,7 @@ def parse_args():
                 options.topdir = pathname2
             else:
                 parser.error("invalid argument: " + pathname2 + " (should be a directory)")
-        elif os.path.exists(pathname1) == False:
+        elif not os.path.exists(pathname1):
             options.outpathname = pathname1
             if os.path.isdir(pathname2):
                 options.topdir = pathname2
@@ -101,7 +102,7 @@ def parse_args():
     
     return options
 
-if __name__ == '__main__':
+def main():
     logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG, filemode='w',)
     logging.debug("args: %s", sys.argv)
     options = parse_args()
@@ -112,3 +113,8 @@ if __name__ == '__main__':
     print_pathnames(options.topdir, outfile, options.recursive, options.dry_run)
     if outfile != sys.stdout:
         outfile.close()
+    return 0
+
+
+if __name__ == '__main__':
+    exit(main())

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #  histo.py
@@ -7,18 +7,14 @@
 #  
 #  MIT License
 
+from __future__ import print_function
 import csv
 import sys
+from shelltools import _common
 from argparse import ArgumentParser
 import logging
 
 _log = logging.getLogger("histo")
-
-#~ def pokethru(valuetype):
-    #~ if valuetype == int:
-        #~ return 1
-    #~ elif valuetype == float:
-        #~ return 
 
 def get_bin_spec(values, args):
     numbins = args.num_bins
@@ -34,7 +30,7 @@ def get_bin_spec(values, args):
 
 def format_float(value, args):
     if args.relative_precision < 1 or args.relative_precision > 255:
-        print >> sys.stderr, "invalid relative precision value:", args.relative_precision
+        print("histo: invalid relative precision value:", args.relative_precision, file=sys.stderr)
         args.relative_precision = 4
     fmt = "%" + str(args.relative_precision) + "f"
     return fmt % value
@@ -58,7 +54,8 @@ def print_categorical_histo(values, args):
     prev = None
     n = 0
     for value in values:
-        if prev is None: prev = value
+        if prev is None:
+            prev = value
         else:
             if value != prev:
                 writer.writerow([prev, n])
@@ -105,7 +102,6 @@ def print_histo(args):
         return 1
     values.sort()
     n = 0
-    #cumul_n = 0
     total = len(values)
     writer = csv.writer(sys.stdout, delimiter=args.delim)
     if len(values) > 0:
@@ -116,7 +112,7 @@ def print_histo(args):
         values = values[n:]
     bottom = binmin
     top = bottom + binstep
-    for b in xrange(0, numbins):
+    for b in range(0, numbins):
         n = 0
         while n < len(values) and values[n] < top:
             n += 1
@@ -141,9 +137,10 @@ def _parse_value_type(args):
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument("valuesfile", nargs='?', help="file to read values from; if not present, stdin is read")
+    parser.add_argument("valuesfile", nargs='?', default='/dev/stdin', help="file to read values from; if not present, stdin is read")
     parser.add_argument("-d", "--delim", action="store", help="set output delimiter (use 'TAB' for tab)", default=",")
-    parser.add_argument("-v", "--verbose", action="store_true")
+    _common.add_logging_options(parser)
+    parser.add_argument("-v", "--verbose", action="store_const", const='DEBUG', dest='log_level', help="set log level DEBUG")
     parser.add_argument("-c", "--values-col", default=0, type=int, help="column containing values to be counted (default 0)")
     parser.add_argument("-s", "--skip", default=0, type=int, help="rows to skip at beginning of file (default 0)")
     parser.add_argument("-b", "--bins", default=None, nargs=2, metavar=("MIN","STEP"), type=str, help="bin specification")
@@ -158,9 +155,7 @@ def main():
     args = parser.parse_args()
     _parse_value_type(args)
     if args.delim == 'TAB': args.delim = '\t'
-    logging.basicConfig(level=logging.INFO)
-    if args.verbose:
-        _log.setLevel(logging.DEBUG)
+    _common.config_logging(args)
     return print_histo(args)
 
 if __name__ == '__main__':

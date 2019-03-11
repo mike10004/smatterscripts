@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
 #
@@ -28,7 +28,7 @@ ERR_UNDEFINED = 202
 _BACKUP_CONF_FILENAME = ".backup.conf"
 _SITE_BACKUP_CONF_FILENAME = "backup.conf"
 _USER_BACKUP_CONF_FILENAME = "backup.conf"
-_OPTS_NOT_IMPLEMENTED = ("keep_extension")
+_OPTS_NOT_IMPLEMENTED = tuple("keep_extension")
 _SITE_CONFIG_DIR = "/etc"
 _USER_HOME_DIR = os.getenv('USERPROFILE') or os.getenv('HOME')
 _PLATFORM_UNAME = platform.uname()
@@ -198,7 +198,7 @@ def _find_backup_conf(stage, parser, cmdline_options, src_pathname):
             if not os.path.isfile(backup_conf_pathname):
                 backup_conf_pathname = None
         elif os.path.isdir(cmdline_options.config_file):
-            backup_conf_pathname = os.path.join(options.config_file, _BACKUP_CONF_FILENAME)
+            backup_conf_pathname = os.path.join(cmdline_options.config_file, _BACKUP_CONF_FILENAME)
         elif os.path.isfile(cmdline_options.config_file):
             backup_conf_pathname = cmdline_options.config_file
         if cmdline_options.config_file is not None and backup_conf_pathname is None:
@@ -304,7 +304,7 @@ def main():
         if options.stacktraces:
             traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stderr)
         else:
-            print >> sys.stderr, traceback.format_exc().splitlines()[-1]
+            print(traceback.format_exc().splitlines()[-1], file=sys.stderr)
     return ret
 
 if __name__ == '__main__':

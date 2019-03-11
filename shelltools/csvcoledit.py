@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #  csvcoledit.py
@@ -55,6 +55,7 @@ def main():
     else:
         with open(args.csvfile, 'r') as ifile:
             return _open_ofile_and_do(ifile, opfunction, args)
+
 
 if __name__ == '__main__':
     exit(main())

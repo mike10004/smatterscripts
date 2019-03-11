@@ -1,36 +1,32 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 #  (c) 2015 Mike Chaberski
 #  
 #  MIT License
 
+from __future__ import print_function
 from __future__ import with_statement
 import sys
 import tempfile
 import logging
-import findfiles
-import getdupes
-import hashall
-import movefiles
+from . import findfiles
+from . import getdupes
+from . import hashall
+from . import movefiles
 import os
 
 def parse_args():
-    from optparse import OptionParser
-    parser = OptionParser()
-    parser.add_option("-v", "--verbose",
-                    dest="verbose", action="store_true")
-    parser.set_defaults(verbose=False)
-    
-    (options, args) = parser.parse_args()
-    
-    if len(args) != 2:
-        parser.error("Invalid syntax: two arguments required")
-    srcdir = args[0]
-    destdir = args[1]
-    
-    return options, srcdir, destdir
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("src_dir")
+    parser.add_argument("dst_dir")
+    parser.add_argument("-v", "--verbose", dest="verbose", action="store_true")
+    args = parser.parse_args()
+    srcdir = args.src_dir
+    destdir = args.dst_dir
+    return args, srcdir, destdir
 
-if __name__ == '__main__':
+def main():
     logging.basicConfig(filename='/tmp/py-movedupes.log', level=logging.DEBUG, filemode='w',)
     logging.debug("args: %s", sys.argv)
     
@@ -55,7 +51,8 @@ if __name__ == '__main__':
     hashtuples.sort()
     dupes = getdupes.get_dupes_list(hashtuples)
     movefiles.move_files(dupepathnames=dupes, newroot=destdir)
+    return 0
     
-    #with open(pathnames_file.name, 'r') as pathnames_file:
-    #    for line in pathnames_file:
-    #        print line
+
+if __name__ == '__main__':
+    exit(main())

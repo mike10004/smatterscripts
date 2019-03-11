@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #  ressample.py
@@ -7,6 +7,7 @@
 #  
 #  MIT License
 
+from __future__ import print_function
 from argparse import ArgumentParser
 import random
 import sys
@@ -44,7 +45,7 @@ def _print_lines(ifile, subset, args):
     for line in ifile:
         n += 1
         if subset[k - 1] == n:
-            print line,
+            print(line, end="")
             del subset[k - 1]
             k = len(subset)
 
@@ -58,9 +59,8 @@ def main():
             +" of sampled items and iterates over input again to print")
     args = parser.parse_args()
     if args.conserve and args.inputfile is None:
-        print >> sys.stderr, "can't use stdin input with --conserve"
+        print("ressample: can't use stdin input with --conserve", file=sys.stderr)
         return 1
-    ofile = sys.stdout
     if args.inputfile is None or args.inputfile == '-':
         iterator = sys.stdin
         sample = get_reservoir_sample(iterator, args.k, args)
@@ -73,9 +73,9 @@ def main():
             _print_lines(ifile, sample, args)
     else:
         for s in sample:
-            print s,
+            print(s, end="")
     if len(sample) < args.k:
-        print >> sys.stderr, "ressample: not enough items in input; sample contains only", len(sample)
+        print("ressample: not enough items in input; sample contains only", len(sample), file=sys.stderr)
         return 2
     return 0
 

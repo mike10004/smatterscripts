@@ -1,15 +1,18 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #  (c) 2015 Mike Chaberski
 #  
 #  MIT License
 
-import sys
-import logging
-from _common import NullTerminatedInput
+from ._common import NullTerminatedInput
 
-if __name__ == '__main__':
-    #logging.basicConfig(level=logging.DEBUG)
+
+def main():
     nti = NullTerminatedInput()
     for line in nti:
-        print "[%3d] '%s'" % (len(line),  line)
+        print("[%3d] '%s'" % (len(line),  line))
+    return 0
+
+
+if __name__ == '__main__':
+    exit(main())

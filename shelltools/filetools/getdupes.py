@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 #  (c) 2015 Mike Chaberski
 #  
@@ -8,13 +8,12 @@ from __future__ import with_statement
 import sys
 import re
 import logging
-import dm_common
 import tempfile
 import os
+from . import dm_common
+
 
 LOG_FILENAME='/tmp/py-getdupes.log'
-
-
 TUPLE_HASHCODE_INDEX = 0
 TUPLE_PATHNAME_INDEX = 1
 # Sets the buffer limit for how many hashcode-pathname tuples
@@ -43,7 +42,7 @@ def parse_hash_tuple(digest_file_line, normpath=False):
     code = re.search("\A\w+\s", digest_file_line).group(0)
     #logging.debug("matched hex digest '%s'", code)
     pathname = extract_pathname(digest_file_line, len(code.strip()), normpath)
-    return (code, pathname)
+    return code, pathname
     
 def load_hash_tuples(hashes_file=sys.stdin, normpath=False):
     hashtuples = []
@@ -65,7 +64,7 @@ def scan_rest_of_file(infile, query_tuple, outfile, normpath=False):
                         line).group(0).strip()
             pathname = extract_pathname(line, len(dupe_code), normpath)
             if pathname != query_tuple[TUPLE_PATHNAME_INDEX]:
-                print >> outfile, pathname  
+                print(pathname, file=outfile)
 
 def print_matches_for_line(hashes_file_pathname, start_line=0, 
                 dupes_file=sys.stdout, normpath=False):
@@ -101,7 +100,7 @@ def print_dupes_list(sorted_hashtuples, outfile=sys.stdout):
     for i in range(0, len(sorted_hashtuples)-2):
         if (sorted_hashtuples[i][TUPLE_HASHCODE_INDEX] == 
             sorted_hashtuples[i+1][TUPLE_HASHCODE_INDEX]):
-            print >> outfile, sorted_hashtuples[i][TUPLE_PATHNAME_INDEX]
+            print(sorted_hashtuples[i][TUPLE_PATHNAME_INDEX], file=outfile)
 
 def parse_args():
     from optparse import OptionParser
@@ -131,8 +130,8 @@ def parse_args():
     return options
 
 def execute_sort_search(hashes_file_pathname=None, dupes_file=sys.stdout):
-    if options.hashes_file_pathname:
-        hashes_file = open(options.hashes_file_pathname, 'r')
+    if hashes_file_pathname:
+        hashes_file = open(hashes_file_pathname, 'r')
     else:
         hashes_file = sys.stdin
     hash_tuples = load_hash_tuples(hashes_file)
@@ -151,8 +150,8 @@ def execute_search(hashes_file_pathname=None, num_lines=-1,
                     hashes_file_pathname, num_lines,
                     dupes_file_pathname, search_mode)
                     
-    if options.dupes_file_pathname:
-        dupes_file = open(options.dupes_file_pathname, 'w')
+    if dupes_file_pathname:
+        dupes_file = open(dupes_file_pathname, 'w')
     else:
         dupes_file = sys.stdout
     logging.debug("printing to %s", dupes_file)
@@ -166,7 +165,7 @@ def execute_search(hashes_file_pathname=None, num_lines=-1,
     dm_common.safe_close_output(dupes_file)
 
 
-if __name__ == '__main__':
+def main():
     logging.basicConfig(filename=LOG_FILENAME, 
                         level=logging.DEBUG, 
                         filemode='w',)
@@ -174,7 +173,7 @@ if __name__ == '__main__':
     logging.debug('parsed options: %s', options)
     
     num_lines = 0
-    if (options.search_mode == AUTO_SEARCH_MODE):
+    if options.search_mode == AUTO_SEARCH_MODE:
         # Count lines to determine best search mode.
         # If input is stdin, must write temp file from stdin
         if options.hashes_file_pathname is None:
@@ -183,7 +182,7 @@ if __name__ == '__main__':
                 logging.debug('created temp file %s at %s', 
                             hashes_file, os.path.abspath(hashes_file_pathname))
                 for line in sys.stdin:
-                    print >> hashes_file, line,
+                    print(line, end="", file=hashes_file)
                     num_lines += 1
             options.hashes_file_pathname = hashes_file_pathname
         else:
@@ -198,3 +197,8 @@ if __name__ == '__main__':
                     num_lines=num_lines, 
                     dupes_file_pathname=options.dupes_file_pathname,
                     search_mode=options.search_mode)
+    return 0
+
+
+if __name__ == '__main__':
+    exit(main())

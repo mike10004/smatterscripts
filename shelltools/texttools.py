@@ -31,10 +31,12 @@ def simplejux(seqs, csvwriter=None, nullcelldisp=str(None)):
 
 def juxfiles(inpaths, ofile=sys.stdout, delim='\t',
             skipheaderrows=0, printheader=True):
-    ifiles = [open(inp, 'rb') for inp in inpaths]
     _log.debug("reading from files: %s", str(inpaths))
     _log.debug("skipping %d row(s) in each input file", skipheaderrows)
+    ifiles = []
     try:
+        for inp in inpaths:
+            ifiles.append(open(inp, 'rb'))
         inlists = [map(str.strip, ifile.readlines()) for ifile in ifiles]
         _log.debug("input lengths: %s", str([len(s) for s in inlists]))
         for ifile in ifiles: ifile.close()
@@ -43,41 +45,18 @@ def juxfiles(inpaths, ofile=sys.stdout, delim='\t',
         if skipheaderrows: 
             inlists = [inlist[skipheaderrows:] for inlist in inlists]
         simplejux(inlists, writer)
-    except IOError, inst:
-        for ifile in ifiles: ifile.__exit__()
+    except IOError as inst:
+        _log.debug("error reading from file: %s", inst)
+        for ifile in ifiles:
+            try:
+                ifile.__exit__()
+            except Exception as close_error:
+                _log.debug("error closing input file: %s", close_error)
 
-##class RowComparator:
-##    def __init__(self, cola, colb, aconv=str, bconv=str, itemcmp=cmp):
-##        self.cola = cola
-##        self.colb = colb
-##        self.aconv = aconv
-##        self.bconv = bconv
-##        self.itemcmp = itemcmp
-##    
-##    def rowcmp(self, rowA, rowB):
-##        return self.itemcmp(rowA[cola], rowB[colb])
-##    
-##
-##def rowcmp(rowa, cola, rowb, colb, aconv=str, bconv=str, itemcmp=cmp):
-##    a = rowa[cola]
-##    if aconv is not None: a = aconv(a)
-##    b = rowb[colb]
-##    if bconv is not None: b = bconv(b)
-##    return itemcmp(a, b)
 
 def join_on(leftreader, rightlines, writer, 
-            leftcol=0, rightcol=0, itemcmp=cmp,
+            leftcol=0, rightcol=0,
             bothuniq=False, printnonmatches=True):
-##    if itemcmp is not None:
-##        comparator = RowComparator(rightcol, rightcol)
-##        rightlines.sort(cmp=comparator.rowcmp)
-##        rightindex = 0
-##        for leftrow in leftreader:
-##            rightrow = rightlines[rightindex]
-##            if leftrow[leftcol] == rightrow[rightcol]:
-##                
-##    else: linessorted = False
-##    if linessorted: rightindex = 0
     leftlines = 0
     linesout = 0
     for leftrow in leftreader:
