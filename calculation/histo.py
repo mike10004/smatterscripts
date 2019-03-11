@@ -125,35 +125,24 @@ def print_histo(args):
         write_histo_row(writer, "More", len(values), total, args)
     return 0
 
-def _parse_value_type(args):
-    if args.value_type == 'int':
-        args.value_type = int
-    elif args.value_type == 'float':
-        args.value_type = float
-    elif args.value_type == 'str':
-        args.value_type = str
-    else:
-        raise ValueError("bad value type: " + str(args.value_type))
-
 def main():
     parser = ArgumentParser()
     parser.add_argument("valuesfile", nargs='?', default='/dev/stdin', help="file to read values from; if not present, stdin is read")
-    parser.add_argument("-d", "--delim", action="store", help="set output delimiter (use 'TAB' for tab)", default=",")
+    parser.add_argument("-d", "--delim", action="store", metavar="CHAR", help="set output delimiter (use 'TAB' for tab; default is ',')", default=",")
     _common.add_logging_options(parser)
     parser.add_argument("-v", "--verbose", action="store_const", const='DEBUG', dest='log_level', help="set log level DEBUG")
-    parser.add_argument("-c", "--values-col", default=0, type=int, help="column containing values to be counted (default 0)")
-    parser.add_argument("-s", "--skip", default=0, type=int, help="rows to skip at beginning of file (default 0)")
+    parser.add_argument("-c", "--values-col", default=0, type=int, metavar="K", help="column containing values to be counted (default 0)")
+    parser.add_argument("-s", "--skip", default=0, type=int, metavar="N", help="rows to skip at beginning of file (default 0)")
     parser.add_argument("-b", "--bins", default=None, nargs=2, metavar=("MIN","STEP"), type=str, help="bin specification")
-    parser.add_argument("-n", "--num-bins", default=10, type=int, help="if --bins is not specified, divide into this many bins (default 10)")
-    parser.add_argument("-t", "--value-type", choices=['int', 'float', 'str'], default='float', help="value type (default float)")
+    parser.add_argument("-n", "--num-bins", default=10, type=int, metavar="N", help="if --bins is not specified, divide into this many bins (default 10)")
+    parser.add_argument("-t", "--value-type", choices=(int, float, str), default=float, type=type, metavar="TYPE", help="value type (default float)")
     parser.add_argument("-x", "--include-extremes", help="include Less and More bins even if empty", action="store_true", default=False)
     parser.add_argument("-X", "--exclude-extremes", help="exclude Less and More bins even if nonempty", action="store_true", default=False)
-    parser.add_argument("--bin-precision", type=int, help="print float bin labels with specified precision")
+    parser.add_argument("--bin-precision", type=int, metavar="N", choices=tuple(range(32)), help="print float bin labels with specified precision")
     parser.add_argument("--ignore", action="store_true", help="ignore un-parseable values", default=False)
     parser.add_argument("--relative", help="also print relative frequency", action="store_true")
     parser.add_argument("--relative-precision", type=int, default=4, help="specify precision for formatting relative frequency values")
     args = parser.parse_args()
-    _parse_value_type(args)
     if args.delim == 'TAB': args.delim = '\t'
     _common.config_logging(args)
     return print_histo(args)

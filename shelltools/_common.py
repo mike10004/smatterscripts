@@ -10,7 +10,7 @@ import argparse
 
 
 _log = logging.getLogger(__name__)
-_LOG_LEVEL_CHOICES=('DEBUG', 'INFO', 'WARNING', 'ERROR'),
+_LOG_LEVEL_CHOICES=('DEBUG', 'INFO', 'WARNING', 'ERROR')
 NULLCHAR = "\0"
 
 
@@ -29,12 +29,9 @@ def add_log_level_option(parser, default_level='INFO'):
     """
     parser.add_option("-L", "--log-level", dest="log_level",
                         metavar="LEVEL",
-                        nargs=1,
-                        action="store",
-                        type="str",
-                        help="set log level to one of " + 
-                            str(_LOG_LEVEL_CHOICES))
-    parser.set_defaults(log_level=default_level)
+                        choices=_LOG_LEVEL_CHOICES,
+                        default=default_level,
+                        help="set log level to one of " + str(_LOG_LEVEL_CHOICES))
 
 def config_logging(options):
     """Configures logging based on an options object. The options object
@@ -46,7 +43,7 @@ def config_logging(options):
     except KeyError:
         print("_common: error parsing log level", file=sys.stderr)
         level = logging.INFO
-    logging.basicConfig(level=level, logfile=options.log_file)
+    logging.basicConfig(level=level)
 
 def add_logging_options(parser: argparse.ArgumentParser):
     """Add log destination and log level options to a parser. The log 
@@ -54,9 +51,9 @@ def add_logging_options(parser: argparse.ArgumentParser):
     returned by parser.parse_args() to a logging.LEVEL value (not a 
     string), and has default value logging.INFO.
     """
-    parser.add_argument("-L", "--log-file",
-                        metavar="FILE",
-                        help="print log messages to file")
+    # parser.add_argument("-L", "--log-file",
+    #                     metavar="FILE",
+    #                     help="print log messages to file")
     parser.add_argument("-l", "--log-level", dest="log_level",
                         metavar="LEVEL",
                         default='INFO',
