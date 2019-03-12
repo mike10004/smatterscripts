@@ -82,7 +82,8 @@ def read_values(ifile, args):
     return values
 
 def print_histo(args):
-    if args.valuesfile is None:
+    if args.valuesfile is None or args.valuesfile == '-':
+        print("histo: reading values from standard input", file=sys.stderr)
         values = read_values(sys.stdin, args)
     else:
         with open(args.valuesfile, 'r') as ifile:

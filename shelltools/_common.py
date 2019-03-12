@@ -15,7 +15,7 @@ NULLCHAR = "\0"
 
 
 def parse_args_with_logging(parser: argparse.ArgumentParser):
-    assert isinstance(parser, argparse.ArgumentParser), "optparse is not longer supported"
+    assert isinstance(parser, argparse.ArgumentParser), "expect argparse.ArgumentParser; optparse is no longer supported"
     add_logging_options(parser)
     args = parser.parse_args()
     config_logging(args)
