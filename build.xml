@@ -33,6 +33,7 @@
 
     <target name="compile" depends="init" description="generate executable scripts">
         <generate-script relpath="calculation/histo.py">histo</generate-script>
+        <generate-script relpath="shelltools/ressample.py">ressample</generate-script>
     </target>
 
     <target name="build" depends="compile" description="make scripts executable">
@@ -45,6 +46,7 @@
 
     <target name="install" depends="build" description="create symlinks to executables">
         <install-script>histo</install-script>
+        <install-script>ressample</install-script>
     </target>
 
     <target name="clean" description="clean up">
