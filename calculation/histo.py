@@ -217,7 +217,7 @@ def print_histo(args: Namespace):
 def main():
     parser = ArgumentParser()
     parser.add_argument("valuesfile", nargs='?', default='/dev/stdin', help="file to read values from; if not present, stdin is read")
-    parser.add_argument("-d", "--delim", action="store", metavar="CHAR", help="set output delimiter (use 'TAB' for tab; default is ',')", default=",")
+    parser.add_argument("-d", "--delim", "--output-delimiter", dest="delim", metavar="CHAR", help="set output delimiter (use 'TAB' for tab; default is ',')", default=",")
     _common.add_logging_options(parser)
     parser.add_argument("-v", "--verbose", action="store_const", const='DEBUG', dest='log_level', help="set log level DEBUG")
     parser.add_argument("-c", "--values-col", default=0, type=int, metavar="K", help="column containing values to be counted (default 0)")
