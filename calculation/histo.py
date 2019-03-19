@@ -238,6 +238,3 @@ def main():
     _common.config_logging(args)
     return print_histo(args)
 
-if __name__ == '__main__':
-    exit(main())
-
