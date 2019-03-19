@@ -307,6 +307,3 @@ def main():
             print(traceback.format_exc().splitlines()[-1], file=sys.stderr)
     return ret
 
-if __name__ == '__main__':
-    ret = main()
-    sys.exit(ret)

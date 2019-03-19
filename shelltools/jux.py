@@ -6,11 +6,14 @@
 
 from __future__ import with_statement
 import logging
-import texttools
+from . import texttools
 import sys
 import os
-import _common
-from texttools import _log
+from . import _common
+
+
+_log = logging.getLogger(__name__)
+
 
 def _parse_args():
     from optparse import OptionParser
@@ -45,7 +48,7 @@ only one argument pathname is probably pointless.""")
     parser.set_defaults(skip=0, delim='\t', null='None', header=True)
     return parser.parse_args()
 
-if __name__ == '__main__':
+def main():
     options, args = _parse_args()
     logging.basicConfig(level=options.log_level)
     inpaths = [os.path.normpath(arg) for arg in args]
@@ -61,5 +64,6 @@ if __name__ == '__main__':
                                 delim=options.delim, 
                                 skipheaderrows=options.skip, 
                                 printheader=options.header)
-            
+    return 0
+
     

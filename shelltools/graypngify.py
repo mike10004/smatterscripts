@@ -169,6 +169,5 @@ error code if only one fails.""")
             else: status = ERR_SOME_ERRORS
     return status
 
-if __name__ == '__main__':
-    exit(main())
+
 

@@ -57,6 +57,5 @@ def main():
             return _open_ofile_and_do(ifile, opfunction, args)
 
 
-if __name__ == '__main__':
-    exit(main())
+
 

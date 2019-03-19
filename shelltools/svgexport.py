@@ -230,6 +230,5 @@ def main():
     _log.debug("%s: %d images successfully exported" % (svg_pn, n))
     return 0
 
-if __name__ == '__main__':
-    exit(main())
+
 

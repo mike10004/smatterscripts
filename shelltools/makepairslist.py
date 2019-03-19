@@ -7,6 +7,7 @@
 #  
 #  MIT License
 
+from __future__ import print_function
 import sys
 import csv
 from argparse import ArgumentParser
@@ -14,10 +15,10 @@ import os.path
 
 def make_pairs_list(probelist, gallerylist, args):
     if not os.path.isfile(probelist):
-        print >> sys.stderr, "makepairslist: file not found:", probelist
+        print("makepairslist: file not found:", probelist, file=sys.stderr)
         return 1
     if gallerylist is not None and not os.path.isfile(gallerylist):
-        print >> sys.stderr, "makepairslist: file not found:", gallerylist
+        print("makepairslist: file not found:", gallerylist, file=sys.stderr)
         return 1
     writer = None
     if args.mode == 'csv':
@@ -26,8 +27,8 @@ def make_pairs_list(probelist, gallerylist, args):
     if gallerylist is None:
         with open(probelist, 'r') as pfile:
             files = [x.strip() for x in pfile.readlines()]
-        for i in xrange(0, len(files)):
-            for j in xrange(i+1, len(files)):
+        for i in range(0, len(files)):
+            for j in range(i+1, len(files)):
                 n += 1
                 p, g = files[i], files[j]
                 _writepg(p, g, args, writer)
@@ -40,15 +41,15 @@ def make_pairs_list(probelist, gallerylist, args):
                 for g in gallery:
                     _writepg(p, g, args, writer)
                     n += 1
-    print >> sys.stderr, n, "rows written"
+    print(n, "rows written", file=sys.stderr)
     return 0
 
 def _writepg(p, g, args, writer):
     if args.mode == 'csv':
         writer.writerow([p, g])
     elif args.mode == 'mates':
-        print p
-        print g
+        print(p)
+        print(g)
     else:
         raise ValueError("unrecognized mode: " + str(args.mode))
 
@@ -57,8 +58,8 @@ def _convert_input(inputpath, args):
         with open(inputpath, 'r') as ifile:
             reader = csv.reader(ifile)
             for row in reader:
-                print row[0]
-                print row[1]
+                print(row[0])
+                print(row[1])
         return 0
     elif args.convert == 'csv':
         with open(inputpath, 'r') as ifile:
@@ -68,11 +69,11 @@ def _convert_input(inputpath, args):
                 if p is None: p = line.strip()
                 elif g is None: 
                     g = line.strip()
-                    csv.writerow((p, g))
+                    writer.writerow((p, g))
                     p, g = None, None
         return 0
     else:
-        print >> sys.stdout, "invalid convert mode:", args.convert
+        print("invalid convert mode:", args.convert, file=sys.stderr)
         return 1
 
 def main():
@@ -91,6 +92,5 @@ def main():
         gallerylist = args.gallerylist
     return make_pairs_list(probelist, gallerylist, args)
 
-if __name__ == '__main__':
-    exit(main())
+
 

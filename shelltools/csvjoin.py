@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #  (c) 2015 Mike Chaberski
 #  
@@ -7,9 +7,9 @@
 from __future__ import with_statement
 import logging
 import csv
-import texttools
+from . import texttools
 
-_log = logging.getLogger('texttools')
+_log = logging.getLogger(__name__)
 
 def _parse_args():
     from optparse import OptionParser
@@ -55,7 +55,7 @@ and right rows is the cell that is compared.
     if len(args) != 2: parser.error('must have 2 arguments')
     return options, args
 
-if __name__ == '__main__':
+def main():
     import sys
     options, args = _parse_args()
     logging.basicConfig(level=eval('logging.'+options.level))
@@ -70,3 +70,4 @@ if __name__ == '__main__':
         writer = csv.writer(ofile, delimiter=options.outdelim)
         texttools.join_on(leftreader, rightlines, writer, options.left_col,
                 options.right_col, bothuniq=options.uniq)
+    return 0

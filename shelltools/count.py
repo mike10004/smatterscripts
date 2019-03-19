@@ -1,15 +1,11 @@
-#!/usr/bin/python
-#
-#  (c) 2015 Mike Chaberski
-#  
-#  MIT License
+#!/usr/bin/python3
 
 import os
 from glob import glob
 
 def countmatches(patterns, asdirs=False):
     subtotals = [0] * len(patterns)
-    for i in xrange(len(patterns)): #pattern in patterns:
+    for i in range(len(patterns)): #pattern in patterns:
         pattern = patterns[i]
         if os.path.isdir(pattern):
             if asdirs: subtotals[i] += len(os.listdir(pattern))
@@ -53,11 +49,14 @@ first example.""")
     options, args = parser.parse_args()
     subtotals = countmatches(args, options.dir)
     if options.indiv:
-        for i in xrange(len(args)):
-            print subtotals[i],
-            if options.args: print "\t%s" % args[i]
-            else: print
-    print sum(subtotals), # do not end line yet
-    if options.args: 
-        print '\tTotal' # end line
-    else: print # end line
+        for i in range(len(args)):
+            print(subtotals[i], end=' ')
+            if options.args:
+                print("\t%s" % args[i])
+            else:
+                print()
+    print(sum(subtotals), end=' ')  # do not end line yet
+    if options.args:
+        print('\tTotal')  # end line
+    else:
+        print()

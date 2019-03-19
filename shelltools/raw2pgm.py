@@ -4,6 +4,7 @@
 #  
 #  MIT License
 
+from __future__ import print_function
 from __future__ import with_statement
 from math import sqrt
 import os.path
@@ -58,9 +59,9 @@ output pathname is input pathname with the extension .%s appended."""
 def write_header(outfile, width, height, 
                 maxval=DEFAULT_MAXVAL, 
                 magic_no=DEFAULT_MAGIC_NO):
-    print >> outfile, magic_no
-    print >> outfile, str(width), str(height)
-    print >> outfile, str(maxval)
+    print(magic_no, file=outfile)
+    print(str(width), str(height), file=outfile)
+    print(str(maxval), file=outfile)
 
 
 def convert(rawfile, pgmfile, width, height):
@@ -81,10 +82,11 @@ def guess_dims(rawfile_pathname, input_width=None):
                         input_width * image_height, rawfile_length))
     return input_width, image_height
 
-if __name__ == '__main__':
+def main():
     import os.path
     options, rawfile_pathname, pgmfile_pathname = parse_args(PGM_EXTENSION)
     image_width, image_height = guess_dims(rawfile_pathname, options.image_width)
     with open(rawfile_pathname, 'rb') as rawfile:
         with open(pgmfile_pathname, 'wb') as pgmfile:
             convert(rawfile, pgmfile, options.image_width, image_height)
+    return 0

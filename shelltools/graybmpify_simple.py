@@ -10,7 +10,10 @@
 import sys
 from PIL import Image
 
-infile, outfile = sys.argv[1], sys.argv[2]
-im = Image.open(infile)
-im = im.convert('L')
-im.save(outfile, 'bmp')
+def main():
+    infile, outfile = sys.argv[1], sys.argv[2]
+    im = Image.open(infile)
+    im = im.convert('L')
+    im.save(outfile, 'bmp')
+    return 0
+

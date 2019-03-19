@@ -115,7 +115,7 @@ Examples:
     return options, args
     
 
-if __name__ == '__main__':
+def main():
     options, args = _parse_args()
     logging.basicConfig(level=eval('logging.'+options.level))
     if _USE_FULL_EXEC_PATH:
@@ -127,8 +127,10 @@ if __name__ == '__main__':
     units = options.units
     if options.file:
         try:
-            if inpath == '-': ifile = sys.stdin
-            else: ifile = open(inpath, 'rt')
+            if inpath == '-':
+                ifile = sys.stdin
+            else:
+                ifile = open(inpath, 'rt')
             for line in ifile:
                 pathname = line.strip()
                 put_density(pathname, pathname, 
@@ -140,4 +142,4 @@ if __name__ == '__main__':
         if options.output is None: outpath = inpath
         else: outpath = options.output
         put_density(inpath, outpath, density, convexec, units)
- 
+    return 0

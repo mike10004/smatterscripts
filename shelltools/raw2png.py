@@ -15,7 +15,7 @@ MAX_INPUT_LENGTH = 16 * 1024 * 1024   # 16 MB in bytes
 
 def guess_dims(rawfile_pathname, input_width=None, warnaboutguess=False):
     if input_width is None and not warnaboutguess:
-        print >> sys.stderr, "raw2png: guessing image width by assuming square: ", rawfile_pathname
+        print("raw2png: guessing image width by assuming square: ", rawfile_pathname, file=sys.stderr)
     rawfile_length = os.path.getsize(rawfile_pathname)
     assert rawfile_length < MAX_INPUT_LENGTH, \
                 ('input exceeds max length: ' + 
@@ -24,9 +24,9 @@ def guess_dims(rawfile_pathname, input_width=None, warnaboutguess=False):
         input_width = int(sqrt(rawfile_length))
     image_height = rawfile_length / input_width
     if input_width * image_height != rawfile_length:
-        print >> sys.stderr, ("raw2png: bad guess: product width*height != file length; " + 
+        print(("raw2png: bad guess: product width*height != file length; " +
                         "%d * %d = %d != %d" % (input_width, image_height,
-                        input_width * image_height, rawfile_length))
+                        input_width * image_height, rawfile_length)), file=sys.stderr)
     return input_width, image_height
 
 def create_widths_map(args):
@@ -47,11 +47,11 @@ def convert(raw_pathname, png_pathname, width, height, args):
     im = Image.fromstring(mode='L', size=(width, height), data=data)
     im.save(png_pathname, 'PNG')
     if args.verbose:
-        print >> sys.stderr, "%s -> %s (%d x %d)" % (raw_pathname, png_pathname, width, height)
+        print("%s -> %s (%d x %d)" % (raw_pathname, png_pathname, width, height), file=sys.stderr)
 
 def main(args):
     if len(args.rawfile) > 1 and args.output is not None:
-        print >> sys.stderr, "raw2png: can't specify output for multiple files"
+        print("raw2png: can't specify output for multiple files", file=sys.stderr)
         return 1
     widthmap = None
     specwidth = args.width
@@ -70,7 +70,7 @@ def main(args):
         convert(rawfile, outname, image_width, image_height, args)
     return 0
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("rawfile", nargs='+', default=list(), 
             help="raw grayscale image file to convert to PNG format")

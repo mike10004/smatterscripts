@@ -4,7 +4,7 @@
 import sys
 
 
-if __name__ == '__main__':
+def main():
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("files", nargs="*")
@@ -15,3 +15,4 @@ if __name__ == '__main__':
     print()
     for line in sys.stdin:
         print("{}{}".format(args.prefix, line.rstrip()))
+    return 0

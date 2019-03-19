@@ -4,6 +4,7 @@
 #  
 #  MIT License
 
+from __future__ import print_function
 from optparse import OptionParser
 from subprocess import Popen, PIPE
 import re
@@ -22,7 +23,7 @@ def clean(filename):
         cleanname = filename
     return cleanname
 
-if __name__ == '__main__':
+def main():
     logging.basicConfig(level=logging.DEBUG)
     parser = OptionParser()
     parser.add_option("-s", "--size", 
@@ -45,9 +46,11 @@ if __name__ == '__main__':
             imsize = props[1]
             filesize = props[5]
         except IndexError:
-            print >> stderr, 'line invalidly formatted: ', line.strip()
+            print('line invalidly formatted: ', line.strip(), file=stderr)
         else:
-            if options.size: print imsize
+            if options.size:
+                print(imsize)
             else:
                 print ("%s%s%s%s%s" %
                     (clean(filename), delim, imsize, delim, filesize))
+    return 0

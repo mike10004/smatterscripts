@@ -23,8 +23,6 @@ def factorial(n):
     [1, 1, 2, 6, 24, 120]
     >>> factorial(30)
     265252859812191058636308480000000L
-    >>> factorial(30L)
-    265252859812191058636308480000000L
     >>> factorial(-1)
     Traceback (most recent call last):
         ...
@@ -48,8 +46,8 @@ def factorial(n):
     if not n >= 0:
         raise ValueError("n must be >= 0")
     if n+1 == n:  # catch a value like 1e300
-        raise OverflowError("n too large: %d" % d)
-    if not (isinstance(n, int) or isinstance(n, long)):
+        raise OverflowError("n too large: %d" % n)
+    if not (isinstance(n, int) or isinstance(n, int)):
         raise ValueError("n must be int or long, not: %s" % str(n))
     result = 1
     factor = 2
@@ -136,17 +134,19 @@ Examples
 
 def print_combo(combo):
     #print ' '.join([str(x) for x in get_combo(n, k, i)])
-    print ' '.join([str(x) for x in combo])
+    print(' '.join([str(x) for x in combo]))
 
-if __name__ == '__main__':
+
+def main():
     options, args = _parse_args()
     n, k = int(args[0]), int(args[1])
     if options.index is not None:
         print_combo(get_combo(n, k, options.index))
     elif options.random is not None:
         combos = get_random_subsets(n, k, options.random)
-        for i in xrange(len(combos)):
+        for i in range(len(combos)):
             print_combo(combos[i])
     else:
-        for i in xrange(get_num_combos(n, k)):
+        for i in range(get_num_combos(n, k)):
             print_combo(get_combo(n, k, i))
+    return 0

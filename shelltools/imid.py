@@ -25,8 +25,6 @@ _NUM_SCENES = 4
 _UNIQUE_COLORS = 5
 _FILE_LENGTH = 6
 
-outs = {'filename': None, 
-        '
 
 def clean(filename):
     try:
@@ -52,7 +50,7 @@ def outline(filename, props, options):
         objs.append(props[_FILE_LENGTH])
     return options.delim.join(objs)
 
-if __name__ == '__main__':
+def main():
     logging.basicConfig(level=logging.DEBUG)
     parser = OptionParser()
     parser.add_option("-s", "--size", 
@@ -76,9 +74,9 @@ if __name__ == '__main__':
             #~ logging.debug("props = %s", str(props))
             filename = line.rstrip()[:-len(' '.join(props))]
         except IndexError:
-            print >> stderr, ('invalid output: "%s"' % line.strip())
+            print('invalid output: "%s"' % line.strip(), file=stderr)
         else:
-            print outline(clean(filename), 
-                        props, 
-                        options)
-    exit(idproc.wait())
+            print(outline(clean(filename),
+                          props,
+                          options))
+    return idproc.wait()
