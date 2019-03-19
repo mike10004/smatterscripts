@@ -9,9 +9,13 @@
 
 from __future__ import print_function
 import csv
+import re
+import os
 import sys
+import errno
 from shelltools import _common
-from argparse import ArgumentParser
+from typing import Callable, Collection, TextIO, List, Any, Pattern
+from argparse import ArgumentParser, Namespace
 import logging
 
 _log = logging.getLogger("histo")
@@ -20,9 +24,9 @@ def get_bin_spec(values, args):
     numbins = args.num_bins
     if args.bins is None:
         binmin = min(values)
-        binstep = max(values) - binmin / args.num_bins
+        binstep = (max(values) + 1e-5 - binmin) / numbins
     else:
-        binmin, binstep = tuple([args.value_type(x) for x in args.bins])
+        binmin, binstep = [args.value_type(x) for x in args.bins]
     _log.debug(" bin spec: (%s, %s, %s) (%s, %s, %s); args.value_type = %s" % 
             (str(binmin), str(binstep), str(numbins), 
             str(type(binmin)), str(type(binstep)), str(type(numbins)), str(args.value_type)))
@@ -64,30 +68,113 @@ def print_categorical_histo(values, args):
         n += 1
     return 0
 
-def read_values(ifile, args):
-    _log.debug(" reading values as type %s" % args.value_type)
-    values = []
-    reader = csv.reader(ifile)
-    nskipped = 0
-    for row in reader:
-        if nskipped < args.skip:
-            nskipped += 1
-            continue
-        try:
-            v = args.value_type(row[args.values_col])
-            values.append(v)
-        except ValueError:
-            if not args.ignore:
-                raise
-    return values
 
-def print_histo(args):
+_ALWAYS_TRUE = lambda x: True
+
+
+def _remove_suffix(s: str, suffix: str, other_suffixes: Collection[str]=None):
+    all_suffixes = [suffix]
+    if other_suffixes:
+        all_suffixes += other_suffixes
+    all_suffixes.sort(key=len, reverse=True)
+    for suffix_ in filter(lambda x: len(x) > 0, all_suffixes):
+        if s.endswith(suffix_):
+            return s[:-len(suffix_)]
+    return s
+
+
+def _read_pattern_file(ifile: TextIO) -> List[Pattern]:
+    patterns = []
+    for line in ifile:
+        line = _remove_suffix(line, "\r\n", ("\n", "\r\r"))
+        if line and not line.lstrip().startswith("#"):
+            p = re.compile(line)
+            patterns.append(p)
+    return patterns
+
+
+def _load_implicit_pattern_files() -> List[Pattern]:
+    pathnames = [
+        os.path.join(os.getenv('HOME'), '.config', 'smatterscripts', 'historc'),
+        os.path.join(os.getcwd(), '.historc'),
+    ]
+    patterns = []
+    for pathname in pathnames:
+        try:
+            with open(pathname, 'r') as ifile:
+                patterns += _read_pattern_file(ifile)
+        except IOError as e:
+            if errno.ENOENT != e.errno:
+                _log.warning("failed to load patterns from %s due to IOError: %s", pathname, e)
+    return patterns
+
+
+
+def build_value_filter(args: Namespace) -> Callable[[List[str]], bool]:
+    patterns = _load_implicit_pattern_files()
+    if args.redact is not None:
+        patterns.append(re.compile(args.redact))
+    if args.redact_patterns is not None:
+        with open(args.redact_patterns, 'r') as ifile:
+            patterns += _read_pattern_file(ifile)
+    return build_filter_from_patterns(patterns)
+
+
+def build_filter_from_patterns(patterns: List[Pattern]) -> Callable[[List[str]], bool]:
+    if not patterns:
+        return _ALWAYS_TRUE
+    def do_filter(row):
+        for cell in row:
+            for pattern in patterns:
+                if pattern.search(cell) is not None:
+                    return False
+        return True
+    return do_filter
+
+
+
+def build_parse_value(args: Namespace) -> Callable[[str], Any]:
+    _log.debug(" reading values as type %s" % args.value_type)
+    return args.value_type
+
+
+class ValueParser(object):
+
+    def __init__(self, parse_value: Callable[[str], Any], value_filter: Callable[[List[str]], bool], ignore_errors: bool=False):
+        self.parse_value = parse_value
+        self.value_filter = value_filter
+        self.ignore_errors = ignore_errors
+
+    def read_values(self, ifile: TextIO, skip: int=0, values_col: int=0) -> List[Any]:
+        values = []
+        reader = csv.reader(ifile)
+        nskipped = 0
+        for row in reader:
+            if nskipped < skip:
+                nskipped += 1
+                continue
+            try:
+                if self.value_filter(row):
+                    v = self.parse_value(row[values_col])
+                    values.append(v)
+            except ValueError:
+                if not self.ignore_errors:
+                    raise
+        return values
+
+
+
+
+def print_histo(args: Namespace):
+    parse_value = build_parse_value(args)
+    value_filter = build_value_filter(args)
+    value_parser = ValueParser(parse_value, value_filter, args.ignore)
     if args.valuesfile is None or args.valuesfile == '-':
         print("histo: reading values from standard input", file=sys.stderr)
-        values = read_values(sys.stdin, args)
+        values = value_parser.read_values(sys.stdin, args.skip, args.values_col)
     else:
         with open(args.valuesfile, 'r') as ifile:
-            values = read_values(ifile, args)
+            values = value_parser.read_values(ifile, args.skip, args.values_col)
     if len(values) < 1 and args.bins is None:
         _log.error(" no values read from file; can't guess bins")
         return 2
@@ -126,6 +213,7 @@ def print_histo(args):
         write_histo_row(writer, "More", len(values), total, args)
     return 0
 
+
 def main():
     parser = ArgumentParser()
     parser.add_argument("valuesfile", nargs='?', default='/dev/stdin', help="file to read values from; if not present, stdin is read")
@@ -143,6 +231,8 @@ def main():
     parser.add_argument("--ignore", action="store_true", help="ignore un-parseable values", default=False)
     parser.add_argument("--relative", help="also print relative frequency", action="store_true")
     parser.add_argument("--relative-precision", type=int, default=4, help="specify precision for formatting relative frequency values")
+    parser.add_argument("--redact", metavar='REGEX', help="redact rows from input that match regex")
+    parser.add_argument("--redact-patterns", metavar="FILE", help="redact rows from input that match regex on any line of in FILE")
     args = parser.parse_args()
     if args.delim == 'TAB': args.delim = '\t'
     _common.config_logging(args)
