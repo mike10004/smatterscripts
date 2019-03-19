@@ -68,6 +68,7 @@
         <generate-executable module="calculation.histo">histo</generate-executable>
         <generate-executable module="shelltools.ressample">ressample</generate-executable>
         <generate-executable module="shelltools.csv2sortable">csv2sortable</generate-executable>
+        <generate-executable module="shelltools.htmljux">htmljux</generate-executable>
     </target>
 
     <target name="unit-test" description="run tests">
@@ -85,6 +86,7 @@
         <install-script>histo</install-script>
         <install-script>ressample</install-script>
         <install-script>csv2sortable</install-script>
+        <install-script>htmljux</install-script>
     </target>
 
     <target name="clean" description="clean up">
