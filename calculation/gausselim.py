@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #  gausselim.py
@@ -7,10 +6,11 @@
 #
 # this requires numpy get it from http://numpy.sf.net
 
+from __future__ import print_function
 from copy import deepcopy
-#from numpy import *
 import numpy
 import sys
+
 # this function, swapRows, was adapted from
 # Numerical Methods Engineering with Python, Jean Kiusalaas
 def swapRows(v,i,j):
@@ -25,17 +25,17 @@ def swapRows(v,i,j):
 def pivoting(a, b, verbose=True):
     """changes matrix A by pivoting"""
     if isinstance(b[0], list):
-        print >> sys.stderr, "unwrapping b =", b
+        print("unwrapping b =", b, file=sys.stderr)
         b = b[0]
     if verbose:
-        print >> sys.stderr, "pivoting: a =", a
-        print >> sys.stderr, "pivoting: b =", b
+        print("pivoting: a =", a, file=sys.stderr)
+        print("pivoting: b =", b, file=sys.stderr)
     n = len(b)
     for k in range(0, n-1):
         av = abs(a[k:n, k])
         arg = numpy.argmax(av)
         p = int(arg) + k
-        if (p != k):
+        if p != k:
             swapRows(b, k, p)
             swapRows(a,k,p)
 
@@ -50,7 +50,7 @@ def gauss(a, b, t=1.0e-9, verbose=False):
     
     # check if matrix is singular
     if abs(numpy.linalg.det(tempa)) < t:
-        print "asn"
+        print("asn")
         return -1
     
     pivoting(tempa, tempb)
@@ -60,7 +60,7 @@ def gauss(a, b, t=1.0e-9, verbose=False):
             if tempa[i,k] != 0.0:
                 m = tempa[i,k]/tempa[k,k]
                 if verbose:
-                    print "m =", m
+                    print("m =", m)
                 tempa[i,k+1:n] = tempa[i,k+1:n] - m * tempa[k,k+1:n]
                 tempb[i] = tempb[i] - m * tempb[k]
     
@@ -99,15 +99,15 @@ def disturb(a, b, ai, bi):
     da = numpy.array([1])
     da.resize(n, n)
     da.fill(ai)
-    
-    print "da = ", da
-    
+
+    print("da = ", da)
+
     db = numpy.array([1])
     db.resize(1, n)
     db.fill(bi)
-    
-    print "db = ", db
-    
+
+    print("db = ", db)
+
     t = db - da*x
     nx = gauss(a, t)
 

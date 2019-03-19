@@ -1,16 +1,16 @@
-#!/usr/bin/env python
+# matrix.py
+#
 # -*- coding: utf-8 -*-
 #
-#  matrix.py
 #  http://www.syntagmatic.net/matrix-multiplication-in-python/
 #
 
+from __future__ import print_function
 import random
-from time import *
-#import cProfile
+
 
 def transpose(a):
-    return zip(*a)
+    return list(zip(*a))
 
 def zero(m,n):
     # Create zero matrix
@@ -25,9 +25,12 @@ def rand(m,n):
 def show(matrix):
     # Print out matrix
     for col in matrix:
-        print col 
- 
+        print(col)
+
+
 def mult(matrix1,matrix2):
+    assert isinstance(matrix1, list)
+    assert isinstance(matrix2, list)
     # Matrix multiplication
     if len(matrix1[0]) != len(matrix2):
         # Check matrix dimensions
@@ -41,15 +44,3 @@ def mult(matrix1,matrix2):
                     new_matrix[i][j] += matrix1[i][k]*matrix2[k][j]
         return new_matrix
  
-def time_mult(matrix1,matrix2):
-    # Clock the time matrix multiplication takes
-    start = clock()
-    new_matrix = mult(matrix1,matrix2)
-    end = clock()
-    print 'Multiplication took ',end-start,' seconds'
- 
-#~ def profile_mult(matrix1,matrix2):
-    #~ # A more detailed timing with process information
-    #~ # Arguments must be strings for this function
-    #~ # eg. profile_mult('a','b')
-    #~ cProfile.run('matrix.mult(' + matrix1 + ',' + matrix2 + ')')

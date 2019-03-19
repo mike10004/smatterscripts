@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #  ezstat.py
@@ -7,6 +6,7 @@
 #  
 #  MIT License
 
+from __future__ import print_function
 from argparse import ArgumentParser
 import csv
 import sys
@@ -30,7 +30,7 @@ def _to_formatted_values(d, args):
         svalues.append((k, s))
     lenmax = max(lengths)
     sfmt = "%" + str(lenmax) + "s"
-    for i in xrange(len(svalues)):
+    for i in range(len(svalues)):
         k, v = svalues[i]
         v = sfmt % v
         svalues[i] = (k, v)
@@ -46,7 +46,7 @@ def do_describe(values, args):
     ]
     d = _to_formatted_values(d, args)
     for value, name in d:
-        print name, value
+        print(name, value)
     return 0
 
 def read_values(ifile, datatype, args):
@@ -76,12 +76,8 @@ def main():
         with open(args.datafile, 'r') as ifile:
             values = read_values(ifile, datatype, args)
     if len(values) == 0:
-        print >> sys.stderr, "no values in datafile"
+        print("no values in datafile", file=sys.stderr)
         return 2
     fcn = eval('do_' + args.command)
     rv = fcn(values, args)
     return rv
-
-if __name__ == '__main__':
-    exit(main())
-

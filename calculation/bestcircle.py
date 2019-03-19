@@ -7,11 +7,11 @@
 #  
 #  MIT License
 
-from random import random
+from __future__ import print_function
 import math
-from gausselim import *
-from matrix import mult
-import matrix
+from calculation.gausselim import *
+from calculation.matrix import mult
+from calculation import matrix
 
 
 class Point:
@@ -50,33 +50,37 @@ def fit_circle(p):
     M = []
     y = []
     n = len(p)
-    for i in xrange(0, n):
-        M.append([p[i].X(), p[i].Y(), 1.0]);
-        y.append(p[i].X() * p[i].X() + p[i].Y() * p[i].Y());
+    for i in range(0, n):
+        M.append([p[i].X(), p[i].Y(), 1.0])
+        y.append(p[i].X() * p[i].X() + p[i].Y() * p[i].Y())
     #~ // Now, the general linear least-square fitting problem
     #~ //    min_z || M*z - y||_2^2
     #~ // is solved by solving the system of linear equations
     #~ //    (M^T*M) * z = (M^T*y)
     #~ // with Gauss elimination.
     #MT = JXG.Math.transpose(M);
-    MT = zip(*M)
+    MT = list(zip(*M))
     #~ B = JXG.Math.matMatMult(MT, M);
     #~ c = JXG.Math.matVecMult(MT, y);
     B = mult(MT, M)
-    c = mult(MT, matrix.transpose([y]))
-    z = gauss(B, c);
+    yt = matrix.transpose([y])
+    assert isinstance(yt, list), "expect transpose return value to be a list"
+    c = mult(MT, yt)
+    z = gauss(B, c)
      
     #~ Finally, we can read from the solution vector z the coordinates [xm, ym] of the center
     #~ and the radius r and draw the circle.
-    xm = z[0]*0.5;
-    ym = z[1]*0.5;
-    r = math.sqrt(z[2]+xm*xm+ym*ym);
-    return (xm, ym, r)
+    xm = z[0]*0.5
+    ym = z[1]*0.5
+    r = math.sqrt(z[2]+xm*xm+ym*ym)
+    return xm, ym, r
 
 def main():
-    
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("points", type=float, nargs='+', help="sequence of x and y values")
+    args = parser.parse_args()
+    points = [Point(args.points[i], args.points[i+1]) for i in range(0, len(args.points), 2)]
+    print(fit_circle(points))
     return 0
-
-if __name__ == '__main__':
-    main()
 
