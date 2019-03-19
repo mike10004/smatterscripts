@@ -4,11 +4,17 @@
 
 import sys
 import csv
+import errno
+
 
 def main():
     outdelim = "\t"
     indelim = ","
     ofile = sys.stdout
-    for row in csv.reader(sys.stdin, delimiter=indelim):
-        print(outdelim.join(row), file=ofile)
+    try:
+        for row in csv.reader(sys.stdin, delimiter=indelim):
+            print(outdelim.join(row), file=ofile)
+    except IOError as e:
+        if e.errno != errno.EPIPE:  # broken pipe often means we passed output to `head` or `tail`
+            raise
     return 0
