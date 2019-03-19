@@ -69,11 +69,6 @@ def add_output_option(parser, shortopt="-o", longopt="--output"):
                     metavar="FILE",
                     help="write output to FILE")
 
-def add_sort_option(parser, shortopt="-s", longopt="--sort", arg_help="perform sorting"):
-    """Adds a -s/--sort option to a parser that stores a True/False
-    value in the options.sort attribute."""
-    parser.add_option(shortopt, longopt, action="store_true", help=arg_help)
-
 
 class NullTerminatedInput(object):
     """An iterator over null-terminated lines (terminated by '\0') in
