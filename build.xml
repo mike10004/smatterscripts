@@ -10,6 +10,7 @@
     <property name="src_dir" value="${project_dir}"/>
     <property name="install_dir" value="${user.home}/.local/bin"/>
     <property name="install.overwrite" value="false"/>
+    <property name="python.executable" value="/usr/bin/python3"/>
 
     <macrodef name="check-main">
         <text name="progname" optional="false"/>
@@ -41,9 +42,11 @@
         <attribute name="module" default="@{progname}"/>
         <sequential>
             <generate-launcher module="@{module}">@{progname}</generate-launcher>
+            <chmod perm="0700" file="${launchers.dir}/@{progname}.py"/>
             <local name="launcher.path"/>
             <property name="launcher.path" location="${launchers.dir}/@{progname}.py"/>
-            <echo file="${bindir}/@{progname}">#!/usr/bin/env PYTHONPATH=${src_dir} bash${line.separator}</echo>
+            <echo file="${bindir}/@{progname}">#!/bin/bash${line.separator}</echo>
+            <echo file="${bindir}/@{progname}" append="true">export PYTHONPATH=${src_dir}${line.separator}</echo>
             <echo file="${bindir}/@{progname}" append="true">exec ${launcher.path} &quot;$@&quot;${line.separator}</echo>
             <chmod perm="0700" file="${bindir}/@{progname}"/>
         </sequential>
@@ -64,6 +67,7 @@
     <target name="compile" depends="init" description="generate executable scripts">
         <generate-executable module="calculation.histo">histo</generate-executable>
         <generate-executable module="shelltools.ressample">ressample</generate-executable>
+        <generate-executable module="shelltools.csv2sortable">csv2sortable</generate-executable>
     </target>
 
     <target name="unit-test" description="run tests">
@@ -74,12 +78,13 @@
         </exec>
     </target>
 
-    <target name="build" depends="unit-test,compile" description="do everything">
+    <target name="build" depends="unit-test,compile" description="compile and test">
     </target>
 
     <target name="install" depends="build" description="create symlinks to executables">
         <install-script>histo</install-script>
         <install-script>ressample</install-script>
+        <install-script>csv2sortable</install-script>
     </target>
 
     <target name="clean" description="clean up">
