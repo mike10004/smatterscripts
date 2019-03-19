@@ -1,6 +1,12 @@
 from unittest import TestCase
 import io
 from shelltools import htmljux
+import logging
+
+
+_log = logging.getLogger(__name__)
+
+
 
 class PerformTest(TestCase):
 
@@ -13,7 +19,7 @@ class PerformTest(TestCase):
         extractor = htmljux.Extractor(0, None, parent_dir='/x/y')
         htmljux.perform(io.StringIO(csv_text), extractor, ofile=buffer)
         html = buffer.getvalue()
-        print(html)
+        _log.debug(html)
         html = html or None
         self.assertIsNotNone(html)
         self.assertTrue('file:///baz/g%3Aurl-unsafe%3Aaw.jpg')
@@ -28,7 +34,7 @@ caption,with,commas\trel/path/c.jpg\t/abs/pa,t,h/d.gif
         extractor = htmljux.Extractor(0, None, parent_dir='/x/y')
         htmljux.perform(io.StringIO(csv_text), extractor, csv_args={'delimiter': "\t"}, ofile=buffer)
         html = buffer.getvalue()
-        print(html)
+        _log.debug(html)
         html = html or None
         self.assertIsNotNone(html)
         self.assertTrue('/abs/pa%2Ct%2Ch/d.gif' in html)
