@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #  pybase64.py
@@ -8,13 +8,14 @@
 #  
 #  MIT License
 
+from __future__ import print_function
 from argparse import ArgumentParser
 import base64
 import sys, os, os.path
 import logging
-import md5
+import hashlib
 
-_log = logging.getLogger('pyb64')
+_log = logging.getLogger(__name__)
 
 def writefile(args, outdata, ofile=sys.stdout):
     ofile.write(outdata)
@@ -35,8 +36,8 @@ def code_one(args, indata, tocode):
         writefile(args, outdata, ofile)
     if args.verbose and args.mode == 'decode':
         with open(args.output, 'rb') as dfile:
-            hasher = md5.new(dfile.read())
-            _log.debug(" MD5: %s" % hasher.hexdigest())
+            hasher = hashlib.new(args.algorithm).new(dfile.read())
+            _log.debug(" %s: %s" % (args.algorithm, hasher.hexdigest()))
     return 0
 
 def encode_all(args):
@@ -65,6 +66,7 @@ def main():
     parser.add_argument("-o", "--output")
     parser.add_argument("-e", "--encoding", default="utf8")
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("-a", "--algorithm", default="md5", help="set algorithm (must be supported by hashlib)")
     args = parser.parse_args()
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
@@ -76,7 +78,4 @@ def main():
         return encode_all(args)
     else:
         raise ValueError("mode must be 'decode' or 'encode'")
-
-if __name__ == '__main__':
-    exit(main())
 
