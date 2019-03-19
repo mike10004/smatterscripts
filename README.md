@@ -20,10 +20,19 @@ To overwrite existing links in `.local/bin`, execute:
 
 ## Adding a program to the set of installed files
 
-Add a macro to generate the script in the `compile` target:
+Add a macro to generate the executable script in the `compile` target:
 
-    <generate-script relpath="path/to/foo.py">foo</generate-script>
+    <generate-executable module="mod.foo">foo</generate-script>
 
-Add a macro to create the symbolic link:
+This creates a launcher program in the `launchers` module and an executable
+script in `/bin`.
 
-    <install-script>histo</install-script>
+Then add a macro to create the symbolic link on your local filesystem:
+
+    <install-script>foo</install-script>
+
+This creates a symbolic link in `$HOME/.local/bin`. To create the link 
+elsewhere, specify the destination as the `install_dir` property:
+
+    $ ant -Dinstall_dir=/path/somewhere/else install
+
