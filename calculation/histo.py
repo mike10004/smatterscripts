@@ -12,9 +12,10 @@ import csv
 import re
 import os
 import sys
+import json
 import errno
-from shelltools import _common
-from typing import Callable, Collection, TextIO, List, Any, Pattern
+import _common
+from typing import Callable, Collection, TextIO, List, Any, Pattern, Dict
 from argparse import ArgumentParser, Namespace
 import logging
 
@@ -93,25 +94,32 @@ def _read_pattern_file(ifile: TextIO) -> List[Pattern]:
     return patterns
 
 
-def _load_implicit_pattern_files() -> List[Pattern]:
+# noinspection PyUnusedLocal
+def read_config(args: Namespace) -> Dict[str, Any]:
     pathnames = [
         os.path.join(os.getenv('HOME'), '.config', 'smatterscripts', 'historc'),
         os.path.join(os.getcwd(), '.historc'),
     ]
-    patterns = []
+    config = {}
     for pathname in pathnames:
         try:
             with open(pathname, 'r') as ifile:
-                patterns += _read_pattern_file(ifile)
+               config.update(json.load(ifile))
         except IOError as e:
             if errno.ENOENT != e.errno:
                 _log.warning("failed to load patterns from %s due to IOError: %s", pathname, e)
-    return patterns
+    return config
+
+
+def _load_implicit_patterns(config) -> List[Pattern]:
+    pattern_tokens = config['redact_patterns'] or tuple()
+    patterns = map(re.compile, pattern_tokens)
+    return list(patterns)
 
 
 
-def build_value_filter(args: Namespace) -> Callable[[List[str]], bool]:
-    patterns = _load_implicit_pattern_files()
+def build_value_filter(config: Dict, args: Namespace) -> Callable[[List[str]], bool]:
+    patterns = _load_implicit_patterns(config)
     if args.redact is not None:
         patterns.append(re.compile(args.redact))
     if args.redact_patterns is not None:
@@ -163,11 +171,14 @@ class ValueParser(object):
         return values
 
 
+def _include_overflow_bin(setting: str, bin_count: int):
+    return (setting == 'include') or ((setting == 'auto') and (bin_count > 0))
 
 
 def print_histo(args: Namespace):
+    config = read_config(args)
     parse_value = build_parse_value(args)
-    value_filter = build_value_filter(args)
+    value_filter = build_value_filter(config, args)
     value_parser = ValueParser(parse_value, value_filter, args.ignore)
     if args.valuesfile is None or args.valuesfile == '-':
         print("histo: reading values from standard input", file=sys.stderr)
@@ -195,7 +206,7 @@ def print_histo(args: Namespace):
     if len(values) > 0:
         while values[n] < binmin and n < len(values):
             n += 1
-        if not args.exclude_extremes and (n > 0 or args.include_extremes):
+        if _include_overflow_bin(args.overflow, n):
             write_histo_row(writer, "Less", n, total, args)
         values = values[n:]
     bottom = binmin
@@ -209,14 +220,16 @@ def print_histo(args: Namespace):
         bottom += binstep
         top += binstep
         values = values[n:]
-    if not args.exclude_extremes and (len(values) > 0 or args.include_extremes):
+    if _include_overflow_bin(args.overflow, n):
         write_histo_row(writer, "More", len(values), total, args)
     return 0
 
 
 def main():
-    parser = ArgumentParser()
-    parser.add_argument("valuesfile", nargs='?', default='/dev/stdin', help="file to read values from; if not present, stdin is read")
+    parser = ArgumentParser(description="Compiles and prints a histogram of values in input.",
+                            epilog="Reads config settings from JSON-formatted file named `.historc` in working "
+                                   + "directory and `$HOME/.config/smatterscripts/historc`.")
+    parser.add_argument("valuesfile", nargs='?', default='/dev/stdin', help="file to read values from; uses stdin if absent")
     parser.add_argument("-d", "--delim", "--output-delimiter", dest="delim", metavar="CHAR", help="set output delimiter (use 'TAB' for tab; default is ',')", default=",")
     _common.add_logging_options(parser)
     parser.add_argument("-v", "--verbose", action="store_const", const='DEBUG', dest='log_level', help="set log level DEBUG")
@@ -225,14 +238,13 @@ def main():
     parser.add_argument("-b", "--bins", default=None, nargs=2, metavar=("MIN","STEP"), type=str, help="bin specification")
     parser.add_argument("-n", "--num-bins", default=10, type=int, metavar="N", help="if --bins is not specified, divide into this many bins (default 10)")
     parser.add_argument("-t", "--value-type", choices=(int, float, str), default=float, type=type, metavar="TYPE", help="value type (default float)")
-    parser.add_argument("-x", "--include-extremes", help="include Less and More bins even if empty", action="store_true", default=False)
-    parser.add_argument("-X", "--exclude-extremes", help="exclude Less and More bins even if nonempty", action="store_true", default=False)
+    parser.add_argument("--overflow", choices=('include', 'exclude', 'auto'), default='auto', help="include/exclude Less and More bins; 'auto' means include if nonempty")
     parser.add_argument("--bin-precision", type=int, metavar="N", choices=tuple(range(32)), help="print float bin labels with specified precision")
     parser.add_argument("--ignore", action="store_true", help="ignore un-parseable values", default=False)
     parser.add_argument("--relative", help="also print relative frequency", action="store_true")
     parser.add_argument("--relative-precision", type=int, default=4, help="specify precision for formatting relative frequency values")
     parser.add_argument("--redact", metavar='REGEX', help="redact rows from input that match regex")
-    parser.add_argument("--redact-patterns", metavar="FILE", help="redact rows from input that match regex on any line of in FILE")
+    parser.add_argument("--redact-patterns", metavar="FILE", help="redact rows from input that match regex on any line in FILE")
     args = parser.parse_args()
     if args.delim == 'TAB': args.delim = '\t'
     _common.config_logging(args)

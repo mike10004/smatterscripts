@@ -3,7 +3,6 @@ from calculation.histo import ValueParser
 from unittest import TestCase
 import io
 import re
-from argparse import Namespace
 
 
 class ValueParserTest(TestCase):

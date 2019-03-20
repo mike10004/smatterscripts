@@ -4,7 +4,7 @@ import sys
 import csv
 import argparse
 import logging
-from shelltools import _common
+import _common
 from typing import TextIO, Callable, Any, Set, List, FrozenSet, Collection, Iterator, Iterable
 
 

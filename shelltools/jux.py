@@ -9,7 +9,7 @@ import logging
 from . import texttools
 import sys
 import os
-from . import _common
+import _common
 import argparse
 
 _log = logging.getLogger(__name__)
