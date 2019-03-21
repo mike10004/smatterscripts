@@ -9,7 +9,7 @@
 import sys
 import logging
 from argparse import Namespace, ArgumentParser
-from typing import TextIO
+from typing import TextIO, Union, BinaryIO
 
 
 _log = logging.getLogger(__name__)
@@ -121,3 +121,31 @@ class NullTerminatedInput(object):
         self.buff = self.buff[prevbufflen + bysplitpt + 1:]
         #        self.log.debug(" returning str with len=%d; len(buff)=%d",  len(nextstr),  len(self.buff))
         return nextstr
+
+
+class StreamContext(object):
+
+    def __init__(self, input_source: Union[str, TextIO, BinaryIO], flags=None):
+        self.input_source = input_source
+        self.flags = flags or 'r'
+        self.opened_input = None
+
+    def get_standard_stream(self):
+        if 'w' in self.flags:
+            return sys.stdout
+        else:
+            return sys.stdin
+
+    def __enter__(self):
+        if self.input_source is None or self.input_source == '-':
+            return self.get_standard_stream()
+        if isinstance(self.input_source, str):
+            self.opened_input = open(self.input_source, self.flags)
+            return self.opened_input
+        else:
+            return self.input_source
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.opened_input:
+            self.opened_input.__exit__(exc_type, exc_val, exc_tb)
+        return False

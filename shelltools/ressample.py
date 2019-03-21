@@ -8,35 +8,52 @@
 #  MIT License
 
 from __future__ import print_function
+from _common import StreamContext
 from argparse import ArgumentParser
 import random
 import sys
+from typing import TypeVar, Iterator, List
 
-def _replace_item(item, n, s, subset, args):
-    if args.conserve:
-        subset[s] = n
-    else:
-        subset[s] = item
+T = TypeVar('T')
 
-def _append_item(item, n, subset, args):
-    if args.conserve:
-        subset.append(n)
-    else:
-        subset.append(item)
+class ReservoirSampler(object):
 
-def get_reservoir_sample(iterator, k, args):
-    result = []
-    n = 0
-    sampled = 0
-    for item in iterator:
-        n += 1
-        if len(result) < k:
-            _append_item(item, n, result, args)
+    conserve = False
+    preserve_order = False
+
+    def __init__(self, rng: random.Random):
+        self.rng = rng
+
+    def _replace_item(self, item, n, s, subset):
+        if self.conserve:
+            subset[s] = n
         else:
-            s = int(random.random() * n)
-            if s < k:
-                _replace_item(item, n, s, result, args)
-    return result
+            subset[s] = item
+
+    def _append_item(self, item, n, subset):
+        if self.conserve:
+            subset.append(n)
+        else:
+            subset.append(item)
+
+    def collect(self, iterator: Iterator, k: int) -> List:
+        result = []
+        n = 0
+        for item in iterator:
+            n += 1
+            if len(result) < k:
+                self._append_item(item, n, result)
+            else:
+                s = int(self.rng.random() * n)
+                if s < k:
+                    self._replace_item(item, n, s, result)
+        return result
+
+
+def get_reservoir_sample(iterator: Iterator, k, args) -> List:
+    sampler = ReservoirSampler(random.SystemRandom())
+    sampler.conserve = args.conserve
+    return sampler.collect(iterator, k)
 
 def _print_lines(ifile, subset, args):
     subset.sort(reverse=True)
@@ -61,14 +78,9 @@ def main():
     if args.conserve and args.inputfile is None:
         print("ressample: can't use stdin input with --conserve", file=sys.stderr)
         return 1
-    if args.inputfile is None or args.inputfile == '-':
-        iterator = sys.stdin
+    with StreamContext(args.inputfile, 'r') as iterator:
         sample = get_reservoir_sample(iterator, args.k, args)
-    else:
-        with open(args.inputfile, 'r') as iterator:
-            sample = get_reservoir_sample(iterator, args.k, args)
     if args.conserve:
-        n = 0
         with open(args.inputfile, 'r') as ifile:
             _print_lines(ifile, sample, args)
     else:
