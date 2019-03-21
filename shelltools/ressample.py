@@ -24,7 +24,7 @@ def _append_item(item, n, subset, args):
     else:
         subset.append(item)
 
-def get_reservoir_sample(iterator, k, args=None):
+def get_reservoir_sample(iterator, k, args):
     result = []
     n = 0
     sampled = 0
