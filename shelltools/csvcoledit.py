@@ -10,6 +10,11 @@
 import sys
 import csv
 from argparse import ArgumentParser
+import logging
+import _common
+
+_log = logging.getLogger(__name__)
+
 
 def _open_ofile_and_do(ifile, opfunction, args):
     if args.output is None or args.output == '-':
@@ -37,14 +42,15 @@ def _has_operation(args):
     return not (args.swap is None)  # ...and args.other is None and args.another is None...
 
 def main():
-    parser = ArgumentParser(description="Operate on CSV input. Must specify at least one operation. Not all operations can be combined.")
+    parser = ArgumentParser(description="Operate on CSV input. Not all operations can be combined.")
+    _common.add_logging_options(parser)
     parser.add_argument("csvfile", nargs="?", help="input file (if absent, read from stdin)")
-    parser.add_argument("--swap", nargs=2, type=int, help="operation: swap columns at indices A and B (first column is zero)", metavar=('A', 'B'))
+    parser.add_argument("--swap", nargs=2, type=int, help="operation: swap columns at zero-based indices A and B", metavar=('A', 'B'))
     parser.add_argument("-o", "--output", help="print output to file instead of stdout")
     args = parser.parse_args()
+    _common.config_logging(args)
     if not _has_operation(args):
-        parser.error("no operation specified")
-        return 1 # parser.error calls sys.exit, but in case that changes
+        _log.warning("no operations specified")
     if args.swap is not None:
         opfunction = do_swap
     else:
@@ -55,7 +61,3 @@ def main():
     else:
         with open(args.csvfile, 'r') as ifile:
             return _open_ofile_and_do(ifile, opfunction, args)
-
-
-
-

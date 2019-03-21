@@ -8,69 +8,27 @@
 #  
 # MIT License
 
-import math
+from math import factorial
 import random
 
-def factorial(n):
-    """Return the factorial of n, an exact integer >= 0.
 
-    If the result is small enough to fit in an int, return an int.
-    Else return a long.
-
-    >>> [factorial(n) for n in range(6)]
-    [1, 1, 2, 6, 24, 120]
-    >>> [factorial(long(n)) for n in range(6)]
-    [1, 1, 2, 6, 24, 120]
-    >>> factorial(30)
-    265252859812191058636308480000000L
-    >>> factorial(-1)
-    Traceback (most recent call last):
-        ...
-    ValueError: n must be >= 0
-
-    Factorials of floats are OK, but the float must be an exact integer:
-    >>> factorial(30.1)
-    Traceback (most recent call last):
-        ...
-    ValueError: n must be exact integer
-    >>> factorial(30.0)
-    265252859812191058636308480000000L
-
-    It must also not be ridiculously large:
-    >>> factorial(1e100)
-    Traceback (most recent call last):
-        ...
-    OverflowError: n too large
-    """
-
-    if not n >= 0:
-        raise ValueError("n must be >= 0")
-    if n+1 == n:  # catch a value like 1e300
-        raise OverflowError("n too large: %d" % n)
-    if not (isinstance(n, int) or isinstance(n, int)):
-        raise ValueError("n must be int or long, not: %s" % str(n))
-    result = 1
-    factor = 2
-    while factor <= n:
-        result *= factor
-        factor += 1
-    return result
-
-def get_num_combos(n, k):
+def get_num_combos(n, k) -> int:
     if n < 0 or k < 0:
-        raise ValueError('n and k values must be nonnegative');
+        raise ValueError('n and k values must be nonnegative')
     if n < k:
         raise ValueError('Must have n >= k')
-    return factorial(n) / (factorial(k) * factorial(n - k))
+    return factorial(n) // (factorial(k) * factorial(n - k))
+
 
 def get_combo(n, k, index):
     num_combos = get_num_combos(n, k)
-    if not (index >= 0 and index < num_combos):
+    if not (0 <= index < num_combos):
         raise ValueError("invalid index: must be in interval [%d, %d)" %
-                            (0, num_combos));
+                            (0, num_combos))
     values = list()
     for slot in range(0, n):
-        if (k == 0): break
+        if k == 0:
+            break
         threshold = get_num_combos(n - (slot + 1), k - 1)
         if index < threshold:
             values.append(slot)
@@ -78,6 +36,7 @@ def get_combo(n, k, index):
         else: # if index >= threshold
             index = index - threshold
     return values
+
 
 def get_random_subset(n, k):
     """Get a subset of k integers from the interval [0, n). Set is returned

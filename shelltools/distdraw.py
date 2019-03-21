@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 #
 #  distdraw.py
 #
@@ -7,6 +6,7 @@
 #  
 #  MIT License
 
+from __future__ import print_function
 import re
 import sys
 import argparse
@@ -14,7 +14,7 @@ import os
 import tempfile
 import shutil
 import os.path
-from operator import itemgetter, attrgetter
+from operator import attrgetter
 import subprocess
 
 _dpi_suffixes = ('ldpi', 'mdpi', 'hdpi', 'xhdpi')
@@ -28,7 +28,7 @@ _DRAWABLE_SELECTOR_TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
 
 def write_text_to_file(text, pathname):
     with open(pathname, 'w') as ofile:
-        print >> ofile, text
+        print(text, file=ofile)
 
 def fill_selector_template(family):
     return _DRAWABLE_SELECTOR_TEMPLATE % (family, family)
@@ -40,7 +40,7 @@ def make_disabled_version(inpath, outpath):
 def _maybe_do(fcn, src, dest, args):
     destdir = os.path.dirname(dest)
     if args.dry_run or args.verbose:
-        print os.path.basename(src), "->", dest
+        print(os.path.basename(src), "->", dest)
     if not args.dry_run:
         if args.makedirs and not os.path.isdir(destdir):
             os.makedirs(destdir)
@@ -57,7 +57,7 @@ class Unit:
         return self.size
 
     def __repr__(self):
-        return repr((self.pathname, self.family, self.age))
+        return repr((self.pathname, self.family, self.size))
     
 class Organizer:
     
@@ -80,11 +80,11 @@ class Organizer:
     
     def printFamilies(self, ofile=sys.stdout):
         for family in self.families:
-            print >> ofile, family + ": ",
+            print(family + ": ", end="", file=ofile)
             units = self.families[family]
             for unit in units:
-                print >> ofile, os.path.basename(unit.pathname),
-            print >> ofile
+                print(os.path.basename(unit.pathname), end="", file=ofile)
+            print(file=ofile)
 
     def copyFamily(self, family, units):
         if self.args.statelistify:
@@ -93,10 +93,10 @@ class Organizer:
             drawabletext = fill_selector_template(family)
             fd, tempname = tempfile.mkstemp(".xml")
             with os.fdopen(fd, 'w') as ofile:
-                print >> ofile, drawabletext
+                print(drawabletext, file=ofile)
             _maybe_do(shutil.copy, tempname, drawablepath, self.args)
             os.remove(tempname)
-        for i in xrange(min(len(_dpi_suffixes), len(units))):
+        for i in range(min(len(_dpi_suffixes), len(units))):
             destdir = os.path.join(self.args.outdir, "res", "drawable-" + _dpi_suffixes[i])
             unit = units[i]
             if self.args.statelistify:

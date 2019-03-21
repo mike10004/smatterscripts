@@ -16,7 +16,6 @@ import logging
 import platform
 import shutil
 import sys
-from StringIO import StringIO
 
 _log = logging.getLogger('graybmpify')
 
