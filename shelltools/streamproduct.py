@@ -48,7 +48,7 @@ def main():
     parser.add_argument("input", nargs='+', metavar="FILE", help="multiple files from which product will be printed")
     parser.add_argument("-k", "--sample", type=int, metavar="K", help="sample size")
     parser.add_argument("-d", "--delimiter", default=' ', metavar="STR", help="set delimiter between items on each line")
-
+    parser.add_argument("-u", "--unique", action='store_true', help="only print combinations with unique items")
     args = parser.parse_args()
     if len(args.input) == 1:
         print("streamproduct: n > 1 arguments required", file=sys.stderr)
@@ -58,6 +58,7 @@ def main():
         print("streamproduct: at most one argument may specify standard input", file=sys.stderr)
         return 1
     g = Generator()
+    g.avoid_dupes = args.unique or False
     if args.sample is not None:
         sampler = ReservoirSampler()
         combos = sampler.collect(g.generate(args.input), args.sample)
