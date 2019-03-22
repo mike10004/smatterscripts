@@ -25,8 +25,8 @@ class ReservoirSampler(object):
 
     preserve_order = False
 
-    def __init__(self, rng: random.Random):
-        self.rng = rng
+    def __init__(self, rng: random.Random=None):
+        self.rng = rng or random.SystemRandom()
 
     def _replace_item(self, item, s, subset):
         subset[s] = item

@@ -70,6 +70,7 @@
         <generate-executable module="shelltools.csv2sortable">csv2sortable</generate-executable>
         <generate-executable module="shelltools.htmljux">htmljux</generate-executable>
         <generate-executable module="shelltools.clusters">clusters</generate-executable>
+        <generate-executable module="shelltools.streamproduct">streamproduct</generate-executable>
     </target>
 
     <target name="unit-test" description="run tests">
@@ -89,6 +90,7 @@
         <install-script>csv2sortable</install-script>
         <install-script>htmljux</install-script>
         <install-script>clusters</install-script>
+        <install-script>streamproduct</install-script>
     </target>
 
     <target name="clean" description="clean up">
