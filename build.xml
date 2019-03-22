@@ -2,7 +2,7 @@
 <project name="SmatterScripts" default="build" basedir=".">
     <description>build project and optionally install programs</description>
 
-    <include file="build-python-local-install.xml"/>
+    <include file="build-python-local-install.xml" as="pylocal"/>
 
     <target name="init">
     </target>
@@ -16,7 +16,7 @@
         <generate-executable module="shelltools.streamproduct">streamproduct</generate-executable>
     </target>
 
-    <target name="build" depends="python-local-install.unittest,compile" description="compile and test">
+    <target name="build" depends="pylocal.unittest,compile" description="compile and test">
     </target>
 
     <target name="install" depends="build" description="create symlinks to executables">
@@ -28,6 +28,6 @@
         <install-script>streamproduct</install-script>
     </target>
 
-    <target name="clean" depends="python-local-install.clean" description="clean up">
+    <target name="clean" depends="pylocal.clean" description="clean up">
     </target>
 </project>
