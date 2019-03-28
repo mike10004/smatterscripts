@@ -2,8 +2,8 @@
 
 """Module that provides utilities for working with predicates."""
 
-from typing import Callable
-
+from typing import Callable, Iterable
+import functools
 
 # noinspection PyUnusedLocal
 def _ALWAYS_FALSE(*args, **kwargs):

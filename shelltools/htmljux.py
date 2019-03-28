@@ -5,20 +5,24 @@ Program that generates an HTML file to juxtapose images. The image pathnames
 are parsed from a CSV file.
 """
 
-import pathlib
 import urllib.parse
-import sys
-import os
+import operator
+import logging
+import pathlib
 import os.path
 import jinja2
+import math
+import sys
 import csv
-from typing import Iterable, List, TextIO, Dict, Optional, Callable, Sequence
+import re
+import os
+from typing import Iterable, List, TextIO, Dict, Optional, Callable, Sequence, Tuple
 from argparse import ArgumentParser, Namespace
-import logging
 from _common import predicates
 
 _log = logging.getLogger(__name__)
-_IDENTITY = lambda x: Image(pathlib.Path(x).as_uri(), os.path.basename(os.path.normpath(x)))
+_DEFAULT_IMAGE_XFORM = lambda x: Image(pathlib.Path(x).as_uri(), os.path.basename(os.path.normpath(x)))
+_IDENTITY = lambda x: x
 
 DEFAULT_TEMPLATE = """<!DOCTYPE html>
 <html>
@@ -97,11 +101,14 @@ class Renderer(object):
 
 class Extractor(object):
 
-    def __init__(self, caption_column: Optional[int], image_pathname_columns: Optional[Iterable[int]], csv_args: Dict=None, src_transform: Optional[Callable[[str], Image]]=None):
+    def __init__(self, caption_column: Optional[int]=None,
+                 image_pathname_columns: Optional[Iterable[int]]=None,
+                 csv_args: Dict=None,
+                 src_transform: Optional[Callable[[str], Image]]=None):
         self.caption_column = caption_column
         self.image_pathname_columns = image_pathname_columns
         self.csv_args = csv_args or {}
-        self.src_transform = src_transform or _IDENTITY
+        self.src_transform = src_transform or _DEFAULT_IMAGE_XFORM
 
     def _transform_cell(self, i, value):
         try:
@@ -110,12 +117,17 @@ class Extractor(object):
             _log.debug("failed to transform value on row %d due to %s", i, e)
             return None
 
-    def extract(self, ifile: TextIO, predicate: Optional[Callable[[int, List[str]], bool]]=None):
+    def _enumerate_rows(self, ifile: TextIO, sort_spec, predicate):
+        sort_key, reverse = sort_spec or (None, False)
         predicate = predicate or predicates.always_true()
+        row_iterator = csv.reader(ifile, **self.csv_args)
+        if sort_key is not None:
+            row_iterator = sorted(row_iterator, key=sort_key, reverse=reverse)
+        return filter(predicate, enumerate(row_iterator))
+
+    def extract(self, ifile: TextIO, sort_spec: Tuple, predicate: Optional[Callable[[int, List[str]], bool]]=None):
         rows = []
-        for i, row in enumerate(csv.reader(ifile, **self.csv_args)):
-            if not predicate(i, row):
-                continue
+        for i, row in self._enumerate_rows(ifile, sort_spec, predicate):
             caption=None
             if self.caption_column is not None:
                 caption = row[self.caption_column]
@@ -151,8 +163,41 @@ def make_cell_value_transform(args: Namespace) -> Callable[[str], Image]:
     return transform
 
 
-def perform(ifile: TextIO, extractor: Extractor, predicate: Optional[Callable], template: str=None, ofile: TextIO=sys.stdout):
-    rows = extractor.extract(ifile, predicate)
+def _try_float(token: str):
+    """Parses a string to a float and returns NaN if not parseable."""
+    try:
+        return float(token)
+    except ValueError:
+        return math.nan
+
+
+def make_sort_key(sort_key_def: Optional[str], caption_column: Optional[int]) -> Optional[Tuple[Callable, bool]]:
+    if sort_key_def is None:
+        return None
+    m = re.fullmatch(r'([-+])?(\w+)(:\d+)?', sort_key_def)
+    if m is None:
+        raise ValueError("sort key definition syntax is incorrect; should be '[-]mode[:K]'")
+    rev = m.group(1) == '-'
+    mode = m.group(2)
+    column = (m.group(3) or '')[1:]
+    if column:
+        column = int(column)
+    else:
+        column = caption_column
+    if mode == 'numeric':
+        if column is None:
+            raise ValueError("must specify sort column in numeric mode")
+        sort_key = lambda row: _try_float(row[column])
+    else:
+        if column is None:
+            sort_key = tuple
+        else:
+            sort_key = operator.itemgetter(column)
+    return sort_key, rev
+
+
+def perform(ifile: TextIO, extractor: Extractor, sort_spec=None, predicate: Optional[Callable]=None, template: str=None, ofile: TextIO=sys.stdout):
+    rows = extractor.extract(ifile, sort_spec, predicate)
     page_model = PageModel(rows)
     env = jinja2.Environment(
         autoescape=jinja2.select_autoescape(['html', 'xml'])
@@ -166,8 +211,22 @@ def perform(ifile: TextIO, extractor: Extractor, predicate: Optional[Callable], 
     print(rendering, file=ofile)
 
 
+def make_row_predicate(skip: int, limit:int):
+    predicate = predicates.always_true()
+    if skip is not None:
+        predicate = predicates.And(predicate, lambda erow: erow[0] >= skip)
+    if limit is not None:
+        predicate =  predicates.And(predicate, lambda erow: erow[0] < limit)
+    return predicate
+
+
 def main(args: Sequence[str]=None, stdout: TextIO=sys.stdout, stderr: TextIO=sys.stderr):
-    parser = ArgumentParser(description="Generate an HTML page from rows of image pathnames in a CSV file.", epilog="All row/column indexes are zero-based.")
+    parser = ArgumentParser(description="Generate an HTML page from rows of image pathnames in a CSV file.",
+                            epilog="""All row/column indexes are zero-based.
+Syntax of --sort argument is MODE[:K] where MODE is 'numeric', or 'lexicographical'
+and K is column index. Caption column is the default index for sorting. Sort is
+performed *before* --skip and --limit are applied.""",
+                            allow_abbrev=False)
     parser.add_argument("input", nargs='?', default="/dev/stdin", help="input CSV file", metavar="FILE")
     parser.add_argument("--caption", type=int, help="set caption column", metavar="K")
     parser.add_argument("--images", help="column indexes of cell values to transform to image URIs (comma-delimited)", metavar="COLS")
@@ -180,6 +239,7 @@ def main(args: Sequence[str]=None, stdout: TextIO=sys.stdout, stderr: TextIO=sys
     parser.add_argument("--skip", type=int, default=0, metavar="N", help="skip first N rows of input")
     parser.add_argument("--limit", "-n", type=int, metavar="N", help="generate markup for at most N rows of input")
     parser.add_argument("--scheme", choices=('file', 'http', 'https', 'none'), default='file', metavar='SCHEME', help="set scheme for img src attribute value; choices are file, http[s], and none; default is file")
+    parser.add_argument("--sort", metavar="[-]MODE[:K]", help="sort rows")
     args = parser.parse_args(args)
     if args.print_template:
         print(DEFAULT_TEMPLATE, end="", file=stdout)
@@ -200,11 +260,8 @@ def main(args: Sequence[str]=None, stdout: TextIO=sys.stdout, stderr: TextIO=sys
         return 1
     p_transform = make_cell_value_transform(args)
     extractor = Extractor(args.caption, image_columns, csv_args, p_transform)
-    predicate = predicates.always_true()
-    if args.skip:
-        predicate = predicates.And(predicate, lambda i, row: i >= args.skip)
-    if args.limit:
-        predicate =  predicates.And(predicate, lambda i, row: i < args.limit)
+    sort_key = make_sort_key(args.sort, args.caption)
+    predicate = make_row_predicate(args.skip, args.limit)
     with open(args.input, 'r') as ifile:
-        perform(ifile, extractor, predicate, args.template)
+        perform(ifile, extractor, sort_key, predicate, args.template)
     return 0
