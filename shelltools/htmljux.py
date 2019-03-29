@@ -5,6 +5,7 @@ Program that generates an HTML file to juxtapose images. The image pathnames
 are parsed from a CSV file.
 """
 
+from __future__ import print_function
 import urllib.parse
 import operator
 import logging
@@ -18,7 +19,7 @@ import re
 import os
 from typing import Iterable, List, TextIO, Dict, Optional, Callable, Sequence, Tuple
 from argparse import ArgumentParser, Namespace
-from _common import predicates
+from _common import predicates, redaction
 
 _log = logging.getLogger(__name__)
 _DEFAULT_IMAGE_XFORM = lambda x: Image(pathlib.Path(x).as_uri(), os.path.basename(os.path.normpath(x)))
@@ -211,12 +212,20 @@ def perform(ifile: TextIO, extractor: Extractor, sort_spec=None, predicate: Opti
     print(rendering, file=ofile)
 
 
-def make_row_predicate(skip: int, limit:int):
+def make_row_predicate(skip: Optional[int], limit:Optional[int], redaction_filter: Optional[Callable[[str], bool]]=None):
     predicate = predicates.always_true()
     if skip is not None:
         predicate = predicates.And(predicate, lambda erow: erow[0] >= skip)
     if limit is not None:
-        predicate =  predicates.And(predicate, lambda erow: erow[0] < limit)
+        if skip is None or skip < 0:
+            skip = 0
+        predicate =  predicates.And(predicate, lambda erow: erow[0] < (skip + limit))
+    if redaction_filter:
+        # predicate = predicates.And(predicate, lambda erow: all(map(redaction_filter, erow[1])))   # less readable
+        def all_cells_ok(erow):  # more readable
+            i, row = erow
+            return all(map(redaction_filter, row))
+        predicate = predicates.And(predicate, all_cells_ok)
     return predicate
 
 
@@ -240,6 +249,7 @@ performed *before* --skip and --limit are applied.""",
     parser.add_argument("--limit", "-n", type=int, metavar="N", help="generate markup for at most N rows of input")
     parser.add_argument("--scheme", choices=('file', 'http', 'https', 'none'), default='file', metavar='SCHEME', help="set scheme for img src attribute value; choices are file, http[s], and none; default is file")
     parser.add_argument("--sort", metavar="[-]MODE[:K]", help="sort rows")
+    redaction.support_pattern_args(parser)
     args = parser.parse_args(args)
     if args.print_template:
         print(DEFAULT_TEMPLATE, end="", file=stdout)
@@ -252,16 +262,17 @@ performed *before* --skip and --limit are applied.""",
     else:
         try:
             image_columns = tuple(map(int, args.images.split(",")))
+            if not image_columns:
+                print(f"{__name__}: --images parameter must specify at least one column index", file=stderr)
+                return 1
         except ValueError:
             parser.print_usage(stderr)
             return 1
-    if not image_columns:
-        print(f"{__name__}: at least one column index must be specified", file=stderr)
-        return 1
     p_transform = make_cell_value_transform(args)
+    redaction_filter = redaction.build_filter_from_args(args)
     extractor = Extractor(args.caption, image_columns, csv_args, p_transform)
     sort_key = make_sort_key(args.sort, args.caption)
-    predicate = make_row_predicate(args.skip, args.limit)
+    predicate = make_row_predicate(args.skip, args.limit, redaction_filter)
     with open(args.input, 'r') as ifile:
         perform(ifile, extractor, sort_key, predicate, args.template)
     return 0

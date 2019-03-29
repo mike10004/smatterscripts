@@ -1,10 +1,12 @@
 import io
+import re
 import logging
 import operator
 from argparse import Namespace
 from unittest import TestCase
-
+from _common import redaction
 from shelltools import htmljux
+from operator import itemgetter
 
 _log = logging.getLogger(__name__)
 
@@ -83,6 +85,59 @@ class ModuleTest(TestCase):
         self.assertEqual(0, exit_code)
         content = stdout.getvalue()
         self.assertEqual(htmljux.DEFAULT_TEMPLATE, content)
+
+
+class RowPredicateTest(TestCase):
+
+    def setUp(self):
+        self.all_rows = [
+            ['3', 'abc', 'def'],
+            ['1', '234', 'xyz'],
+            ['0', 'ert', '41231'],
+            ['8'],
+            [''],
+            ['x', 'y'],
+            ['oxo', '123', 'yuio'],
+        ]
+
+    def _filter_rows(self, predicate, rows=None):
+        if rows is None:
+            rows = self.all_rows
+        return list(map(itemgetter(1), filter(predicate, enumerate(rows))))
+
+    def test_make_row_predicate_redactor(self):
+        redactor = redaction.build_filter_from_patterns([re.compile(r'123'), re.compile('^8$'), re.compile('3,abc')])
+        predicate = htmljux.make_row_predicate(None, None, redactor)
+        expected = [self.all_rows[i] for i in (0, 1, 4, 5)]
+        actual = self._filter_rows(predicate)
+        self.assertListEqual(expected, actual)
+
+    def test_make_row_predicate_slice(self):
+        rows = list(self.all_rows)
+        n = len(rows)
+        test_cases = [
+            # skip, offset, indexes of expected rows
+            (None, None, range(n)),
+            (None, 3, range(3)),
+            (None, 0, []),
+            (None, 1000, range(n)),
+            (4, None, range(4, n)),
+            (4, 1000, range(4, n)),
+            (2, 3, range(2, 5)),
+        ]
+        for skip, limit, indexes in test_cases:
+            with self.subTest():
+                expected = [rows[i] for i in indexes]
+                predicate = htmljux.make_row_predicate(skip, limit, None)
+                actual = self._filter_rows(predicate, rows)
+                self.assertListEqual(expected, actual)
+
+    def test_make_row_predicate_redactor_and_limit(self):
+        redactor = redaction.build_filter_from_patterns([re.compile(r'x')])
+        predicate = htmljux.make_row_predicate(None, 2, redactor)
+        expected = [self.all_rows[i] for i in (0, 2)]
+        actual = self._filter_rows(predicate, self.all_rows[:4])
+        self.assertListEqual(expected, actual)
 
 
 class MakeSortKeyTest(TestCase):

@@ -14,12 +14,15 @@ import os
 import sys
 import json
 import errno
-import _common
-from typing import Callable, Collection, TextIO, List, Any, Pattern, Dict
-from argparse import ArgumentParser, Namespace
 import logging
+import _common
+from _common import redaction, predicates
+from typing import Callable, TextIO, List, Any, Pattern, Dict
+from argparse import ArgumentParser, Namespace
+
 
 _log = logging.getLogger("histo")
+
 
 def get_bin_spec(values, args):
     numbins = args.num_bins
@@ -70,30 +73,6 @@ def print_categorical_histo(values, args):
     return 0
 
 
-_ALWAYS_TRUE = lambda x: True
-
-
-def _remove_suffix(s: str, suffix: str, other_suffixes: Collection[str]=None):
-    all_suffixes = [suffix]
-    if other_suffixes:
-        all_suffixes += other_suffixes
-    all_suffixes.sort(key=len, reverse=True)
-    for suffix_ in filter(lambda x: len(x) > 0, all_suffixes):
-        if s.endswith(suffix_):
-            return s[:-len(suffix_)]
-    return s
-
-
-def _read_pattern_file(ifile: TextIO) -> List[Pattern]:
-    patterns = []
-    for line in ifile:
-        line = _remove_suffix(line, "\r\n", ("\n", "\r\r"))
-        if line and not line.lstrip().startswith("#"):
-            p = re.compile(line)
-            patterns.append(p)
-    return patterns
-
-
 # noinspection PyUnusedLocal
 def read_config(args: Namespace) -> Dict[str, Any]:
     pathnames = [
@@ -117,6 +96,12 @@ def _load_implicit_patterns(config) -> List[Pattern]:
     return list(patterns)
 
 
+def _build_row_filter(patterns: List[Pattern]) -> Callable[[List[str]], bool]:
+    cell_filter = redaction.build_filter_from_patterns(patterns)
+    def do_filter(row):
+        return all(map(cell_filter, row))
+    return do_filter
+
 
 def build_value_filter(config: Dict, args: Namespace) -> Callable[[List[str]], bool]:
     patterns = _load_implicit_patterns(config)
@@ -124,21 +109,8 @@ def build_value_filter(config: Dict, args: Namespace) -> Callable[[List[str]], b
         patterns.append(re.compile(args.redact))
     if args.redact_patterns is not None:
         with open(args.redact_patterns, 'r') as ifile:
-            patterns += _read_pattern_file(ifile)
-    return build_filter_from_patterns(patterns)
-
-
-def build_filter_from_patterns(patterns: List[Pattern]) -> Callable[[List[str]], bool]:
-    if not patterns:
-        return _ALWAYS_TRUE
-    def do_filter(row):
-        for cell in row:
-            for pattern in patterns:
-                if pattern.search(cell) is not None:
-                    return False
-        return True
-    return do_filter
-
+            patterns += redaction.read_pattern_file(ifile)
+    return _build_row_filter(patterns)
 
 
 def build_parse_value(args: Namespace) -> Callable[[str], Any]:
