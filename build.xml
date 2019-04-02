@@ -5,9 +5,7 @@
     <include file="build-python-local-install.xml" as="pylocal"/>
 
     <target name="init">
-        <exec executable="${python.executable}">
-            <arg value="--version"/>
-        </exec>
+        <echo>python.executable=${python.executable}</echo>
     </target>
 
     <target name="compile" depends="init" description="generate executables">
