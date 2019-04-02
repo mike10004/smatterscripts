@@ -1,0 +1,21 @@
+dist: xenial
+
+language: python
+
+python:
+  - "3.7"
+
+env:
+  global:
+    - UNIT_TESTS_LOG_LEVEL=DEBUG
+
+addons:
+  apt:
+    packages:
+    - ant
+
+before_install:
+- pip3 install -r requirements.txt
+
+script:
+- python3 -m unittest discover
