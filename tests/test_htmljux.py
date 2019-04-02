@@ -10,8 +10,8 @@ from _common import redaction
 from shelltools import htmljux
 from operator import itemgetter
 
-_log = logging.getLogger(__name__)
 
+_log = logging.getLogger(__name__)
 
 
 def make_transform(**kwargs):
@@ -118,7 +118,7 @@ A,B,C,D,E,F,G,H,I
             buffer = io.StringIO()
             exit_code = htmljux.main(argl, stdout=buffer)
             html = buffer.getvalue()
-            print(html)
+            _log.debug("\n\n%s\n\n", html)
             self.assertIsNotNone(html)
             self.assertEqual(0, exit_code)
 
