@@ -11,7 +11,7 @@ addons:
     - ant
 
 before_install:
-- /usr/bin/env | grep -i python
+- which python
 
 script:
-- ant -Dpython.executable=python3.7
+- ant -Dpython.executable=$(which python)
