@@ -178,7 +178,7 @@ def make_cell_value_transform(args: Namespace) -> Callable[[str], Image]:
             cell_value = cell_value[:-len(args.remove_suffix)]
         if args.scheme == 'file':
             if not os.path.isabs(cell_value):
-                cell_value = os.path.join(parent_dir, cell_value)
+                cell_value = os.path.join(os.path.abspath(parent_dir), cell_value)
             url = pathlib.Path(cell_value).as_uri()
             title = os.path.basename(cell_value)
         elif args.scheme == 'http' or args.scheme == 'https':
