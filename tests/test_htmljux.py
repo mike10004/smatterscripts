@@ -1,7 +1,9 @@
 import io
 import re
+import os.path
 import logging
 import operator
+import tempfile
 from argparse import Namespace
 from unittest import TestCase
 from _common import redaction
@@ -45,7 +47,7 @@ class PerformTest(TestCase):
         buffer = io.StringIO()
         transform = make_transform(image_root='/x/y')
         extractor = htmljux.Extractor(0, None, None, transform)
-        htmljux.perform(io.StringIO(csv_text), extractor, None, None, ofile=buffer)
+        htmljux.perform(io.StringIO(csv_text), extractor, ofile=buffer)
         html = buffer.getvalue()
         _log.debug(html)
         html = html or None
@@ -60,7 +62,7 @@ caption,with,commas\trel/path/c.jpg\t/abs/pa,t,h/d.gif
         buffer = io.StringIO()
         transform = make_transform(image_root='/x/y')
         extractor = htmljux.Extractor(0, None, {'delimiter': "\t"}, transform)
-        htmljux.perform(io.StringIO(csv_text), extractor, None, None, ofile=buffer)
+        htmljux.perform(io.StringIO(csv_text), extractor, ofile=buffer)
         html = buffer.getvalue()
         _log.debug(html)
         html = html or None
@@ -74,20 +76,51 @@ class ModuleTest(TestCase):
 
     def test_main(self):
         stderr = io.StringIO()
-        exit_code = htmljux.main(['foo', '--images', '3,a,5'], stderr=stderr)
+        exit_code = htmljux.main(['--images', '3,a,5'], stderr=stderr)
         self.assertEqual(1, exit_code)
         content = stderr.getvalue()
         self.assertTrue(content or False)
 
     def test_main_print_template(self):
         stdout = io.StringIO()
-        exit_code = htmljux.main(['foo', '--print-template'], stdout=stdout)
+        exit_code = htmljux.main(['--print-template'], stdout=stdout)
         self.assertEqual(0, exit_code)
         content = stdout.getvalue()
         self.assertEqual(htmljux.DEFAULT_TEMPLATE, content)
 
+    def test_lots_of_options(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            csv_file = os.path.join(tmpdir, "input.csv")
+            with open(csv_file, 'w') as ofile:
+                ofile.write("""\
+A,B,C,D,E,F,G,H,I
+1,2,ab,cd,ef.xyz,gh,ij,kl.xyz
+1,5,mn,op,qr.xyz,st,uv,wx.xyz
+2,2,ab,cd,ef.xyz,gh,ij,kl.xyz
+3,5,mn,op,qr.xyz,st,uv,wx.xyz
+4,2,ab,cd,ef.xyz,gh,yolo,kl.xyz
+5,5,mn,op,qr.xyz,st,uv,wx.xyz
+1,2,ab,cd,ef.xyz,gh,ij,kl.xyz
+3,5,mn,op,yolo.xyz,st,uv,wx.xyz
+6,2,ab,cd,ef.xyz,gh,ij,kl.xyz
+1,5,mn,op,qr.xyz,st,uv,wx.xyz
+""")
+            redactions_file = os.path.join(tmpdir, "redactions.txt")
+            with open(redactions_file, 'w') as ofile:
+                print("yolo", file=ofile)
+            argl = ["--caption", "0", "--images", "4,7", "--skip", "1",
+                    "--image-root", "/path/to/images",
+                    "--remove-suffix", '.xyz', "--redact-patterns", redactions_file,
+                    "--limit", "5", "--sort=-numeric", csv_file]
+            buffer = io.StringIO()
+            exit_code = htmljux.main(argl, stdout=buffer)
+            html = buffer.getvalue()
+            print(html)
+            self.assertIsNotNone(html)
+            self.assertEqual(0, exit_code)
 
-class RowPredicateTest(TestCase):
+
+class RowFiltersTest(TestCase):
 
     def setUp(self):
         self.all_rows = [
@@ -105,16 +138,16 @@ class RowPredicateTest(TestCase):
             rows = self.all_rows
         return list(map(itemgetter(1), filter(predicate, enumerate(rows))))
 
-    def test_make_row_predicate_redactor(self):
+    def test_make_row_pre_filter_redactor(self):
         redactor = redaction.build_filter_from_patterns([re.compile(r'123'), re.compile('^8$'), re.compile('3,abc')])
-        predicate = htmljux.make_row_predicate(None, None, redactor)
+        predicate = htmljux.make_row_pre_filter(None, redactor)
         expected = [self.all_rows[i] for i in (0, 1, 4, 5)]
         actual = self._filter_rows(predicate)
         self.assertListEqual(expected, actual)
 
-    def test_make_row_predicate_slice(self):
-        rows = list(self.all_rows)
-        n = len(rows)
+    def test_make_row_filters_slice(self):
+        original_rows = list(self.all_rows)
+        n = len(original_rows)
         test_cases = [
             # skip, offset, indexes of expected rows
             (None, None, range(n)),
@@ -127,17 +160,23 @@ class RowPredicateTest(TestCase):
         ]
         for skip, limit, indexes in test_cases:
             with self.subTest():
-                expected = [rows[i] for i in indexes]
-                predicate = htmljux.make_row_predicate(skip, limit, None)
-                actual = self._filter_rows(predicate, rows)
-                self.assertListEqual(expected, actual)
+                rows = list(self.all_rows)
+                expected = [original_rows[i] for i in indexes]
+                pre_predicate = htmljux.make_row_pre_filter(skip, None)
+                post_predicate = htmljux.make_row_post_filter(limit)
+                rows = self._filter_rows(pre_predicate, rows)
+                rows = self._filter_rows(post_predicate, rows)
+                self.assertListEqual(expected, rows)
 
     def test_make_row_predicate_redactor_and_limit(self):
         redactor = redaction.build_filter_from_patterns([re.compile(r'x')])
-        predicate = htmljux.make_row_predicate(None, 2, redactor)
+        pre_predicate = htmljux.make_row_pre_filter(None, redactor)
+        post_predicate = htmljux.make_row_post_filter(2)
         expected = [self.all_rows[i] for i in (0, 2)]
-        actual = self._filter_rows(predicate, self.all_rows[:4])
-        self.assertListEqual(expected, actual)
+        rows = self.all_rows[:4]
+        rows = self._filter_rows(pre_predicate, rows)
+        rows = self._filter_rows(post_predicate, rows)
+        self.assertListEqual(expected, rows)
 
 
 class MakeSortKeyTest(TestCase):
@@ -175,14 +214,14 @@ class MakeSortKeyTest(TestCase):
 
 class ExtractorTest(TestCase):
 
-    def test__enumerate_rows(self):
+    def test__enumerate_rows_sort_numeric(self):
         csv_text = """\
 10,a,b
 1,x,y
 5,j,k
 """
         sort_key = htmljux.make_sort_key("numeric:0", None)
-        sorted_rows = list(map(operator.itemgetter(1), htmljux.Extractor()._enumerate_rows(io.StringIO(csv_text), sort_key, None)))
+        sorted_rows = list(map(operator.itemgetter(1), htmljux.Extractor()._enumerate_rows(io.StringIO(csv_text), None, sort_key, None)))
         self.assertListEqual([['1', 'x', 'y'], ['5', 'j', 'k'], ['10', 'a', 'b']], sorted_rows)
 
     def test__enumerate_rows_sort_and_limit(self):
@@ -192,8 +231,9 @@ class ExtractorTest(TestCase):
 5,j,k
 """
         sort_key = htmljux.make_sort_key("-numeric:0", None)
-        predicate = htmljux.make_row_predicate(0, 2)
+        pre_predicate = htmljux.make_row_pre_filter(0, None)
+        post_predicate = htmljux.make_row_post_filter(2)
         sorted_rows = list(
-            map(operator.itemgetter(1), htmljux.Extractor()._enumerate_rows(io.StringIO(csv_text), sort_key, predicate)))
+            map(operator.itemgetter(1), htmljux.Extractor()._enumerate_rows(io.StringIO(csv_text), pre_predicate, sort_key, post_predicate)))
         self.assertListEqual([['10', 'a', 'b'], ['5', 'j', 'k']], sorted_rows)
 

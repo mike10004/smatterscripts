@@ -17,7 +17,7 @@ import sys
 import csv
 import re
 import os
-from typing import Iterable, List, TextIO, Dict, Optional, Callable, Sequence, Tuple
+from typing import Iterable, List, TextIO, Dict, Optional, Callable, Sequence, Tuple, Iterator
 from argparse import ArgumentParser, Namespace
 from _common import predicates, redaction
 
@@ -86,8 +86,8 @@ class Row(object):
 
 class PageModel(object):
 
-    def __init__(self, rows: List[Row]):
-        self.rows = rows
+    def __init__(self, rows: Iterator[Row]):
+        self.rows = rows if isinstance(rows, list) else list(rows)
 
 
 class Renderer(object):
@@ -95,9 +95,21 @@ class Renderer(object):
     def __init__(self, template: jinja2.Template):
         self.template = template
 
-    def render(self, page_model):
+    def render(self, page_model: PageModel):
+        _log.debug("rendering %d rows", len(page_model.rows))
         page_attrs = vars(page_model)
         return self.template.render(**page_attrs)
+
+
+class SortSpecification(tuple):
+
+    sort_key, reverse = None, False
+
+    def __new__(cls, sort_key: Callable, reverse: bool):
+        instance = super(SortSpecification, cls).__new__(cls, [sort_key, reverse])
+        instance.sort_key = sort_key
+        instance.reverse = reverse
+        return instance
 
 
 class Extractor(object):
@@ -115,20 +127,35 @@ class Extractor(object):
         try:
             return self.src_transform(value)
         except Exception as e:
-            _log.debug("failed to transform value on row %d due to %s", i, e)
+            _log.debug("failed to transform value on row %d due to %s: %s", i, type(e), e)
             return None
 
-    def _enumerate_rows(self, ifile: TextIO, sort_spec, predicate):
-        sort_key, reverse = sort_spec or (None, False)
-        predicate = predicate or predicates.always_true()
-        row_iterator = csv.reader(ifile, **self.csv_args)
-        if sort_key is not None:
-            row_iterator = sorted(row_iterator, key=sort_key, reverse=reverse)
-        return filter(predicate, enumerate(row_iterator))
+    def _enumerate_rows(self, ifile: TextIO,
+                        pre_predicate=None,
+                        sort_spec: Optional[SortSpecification]=None,
+                        post_predicate=None) -> Iterator:
+        erow_iterator = enumerate(csv.reader(ifile, **self.csv_args))
+        if sort_spec is None and (pre_predicate is None or pre_predicate is predicates.always_true()):
+            return erow_iterator
+        some_rows = filter(pre_predicate or predicates.always_true(), erow_iterator)
+        some_rows = list(map(operator.itemgetter(1), some_rows))
+        if sort_spec is not None:
+            sort_key, reverse = sort_spec
+            _log.debug("sorting %d rows from input", len(some_rows))
+            some_rows.sort(key=sort_key, reverse=reverse)
+        post_predicate = post_predicate or predicates.always_true()
+        # assert all(map(lambda row: all(map(lambda x: isinstance(x, str), row)), some_rows)), f"expect some_rows to be list of lists of strings"
+        return filter(post_predicate, enumerate(some_rows))
 
-    def extract(self, ifile: TextIO, sort_spec: Tuple, predicate: Optional[Callable[[int, List[str]], bool]]=None):
+    def extract(self,
+                ifile: TextIO,
+                pre_predicate: Optional[Callable]=None,
+                sort_spec: Optional[SortSpecification]=None,
+                post_predicate: Optional[Callable]=None):
+        assert sort_spec is None or isinstance(sort_spec, SortSpecification), f"sort_spec has wrong type: {sort_spec}"
         rows = []
-        for i, row in self._enumerate_rows(ifile, sort_spec, predicate):
+        for row_index, row in self._enumerate_rows(ifile, pre_predicate, sort_spec, post_predicate):
+            # assert all(map(lambda c: isinstance(c, str), row)), f"expect row to contain strings: {row}"
             caption=None
             if self.caption_column is not None:
                 caption = row[self.caption_column]
@@ -136,7 +163,7 @@ class Extractor(object):
                 image_columns = [row[i] for i in range(len(row)) if i != self.caption_column]
             else:
                 image_columns = [row[i] for i in self.image_pathname_columns]
-            images = list(filter(predicates.not_none(), map(lambda v: self._transform_cell(i, v), image_columns)))
+            images = list(filter(predicates.not_none(), map(lambda v: self._transform_cell(row_index, v), image_columns)))
             rows.append(Row(caption, images))
         return rows
 
@@ -172,7 +199,7 @@ def _try_float(token: str):
         return math.nan
 
 
-def make_sort_key(sort_key_def: Optional[str], caption_column: Optional[int]) -> Optional[Tuple[Callable, bool]]:
+def make_sort_key(sort_key_def: Optional[str], caption_column: Optional[int]) -> Optional[SortSpecification]:
     if sort_key_def is None:
         return None
     m = re.fullmatch(r'([-+])?(\w+)(:\d+)?', sort_key_def)
@@ -194,11 +221,17 @@ def make_sort_key(sort_key_def: Optional[str], caption_column: Optional[int]) ->
             sort_key = tuple
         else:
             sort_key = operator.itemgetter(column)
-    return sort_key, rev
+    return SortSpecification(sort_key, rev)
 
 
-def perform(ifile: TextIO, extractor: Extractor, sort_spec=None, predicate: Optional[Callable]=None, template: str=None, ofile: TextIO=sys.stdout):
-    rows = extractor.extract(ifile, sort_spec, predicate)
+def perform(ifile: TextIO,
+            extractor: Extractor,
+            pre_predicate: Optional[Callable]=None,
+            sort_spec: Optional[SortSpecification]=None,
+            post_predicate: Optional[Callable]=None,
+            template: str=None,
+            ofile: TextIO=sys.stdout):
+    rows = extractor.extract(ifile, pre_predicate, sort_spec, post_predicate)
     page_model = PageModel(rows)
     env = jinja2.Environment(
         autoescape=jinja2.select_autoescape(['html', 'xml'])
@@ -212,14 +245,10 @@ def perform(ifile: TextIO, extractor: Extractor, sort_spec=None, predicate: Opti
     print(rendering, file=ofile)
 
 
-def make_row_predicate(skip: Optional[int], limit:Optional[int], redaction_filter: Optional[Callable[[str], bool]]=None):
+def make_row_pre_filter(skip: Optional[int]=None, redaction_filter: Optional[Callable[[str], bool]]=None):
     predicate = predicates.always_true()
     if skip is not None:
         predicate = predicates.And(predicate, lambda erow: erow[0] >= skip)
-    if limit is not None:
-        if skip is None or skip < 0:
-            skip = 0
-        predicate =  predicates.And(predicate, lambda erow: erow[0] < (skip + limit))
     if redaction_filter:
         # predicate = predicates.And(predicate, lambda erow: all(map(redaction_filter, erow[1])))   # less readable
         def all_cells_ok(erow):  # more readable
@@ -229,12 +258,19 @@ def make_row_predicate(skip: Optional[int], limit:Optional[int], redaction_filte
     return predicate
 
 
+def make_row_post_filter(limit: Optional[int]=None):
+    predicate = predicates.always_true()
+    if limit is not None:
+        predicate =  predicates.And(predicate, lambda erow: erow[0] < limit)
+    return predicate
+
+
 def main(args: Sequence[str]=None, stdout: TextIO=sys.stdout, stderr: TextIO=sys.stderr):
     parser = ArgumentParser(description="Generate an HTML page from rows of image pathnames in a CSV file.",
                             epilog="""All row/column indexes are zero-based.
 Syntax of --sort argument is MODE[:K] where MODE is 'numeric', or 'lexicographical'
-and K is column index. Caption column is the default index for sorting. Sort is
-performed *before* --skip and --limit are applied.""",
+and K is column index. Caption column is the default index for sorting. 
+Redaction and --skip are applied before sorting; --limit is applied after.""",
                             allow_abbrev=False)
     parser.add_argument("input", nargs='?', default="/dev/stdin", help="input CSV file", metavar="FILE")
     parser.add_argument("--caption", type=int, help="set caption column", metavar="K")
@@ -245,8 +281,8 @@ performed *before* --skip and --limit are applied.""",
     parser.add_argument("--remove-suffix", metavar="STR", help="remove suffix from cell values")
     parser.add_argument("--remove-prefix", metavar="STR", help="remove prefix from cell values")
     parser.add_argument("--print-template", action='store_true', help="print the default template on stdout and exit")
-    parser.add_argument("--skip", type=int, default=0, metavar="N", help="skip first N rows of input")
-    parser.add_argument("--limit", "-n", type=int, metavar="N", help="generate markup for at most N rows of input")
+    parser.add_argument("--skip", type=int, metavar="N", help="skip first N rows of input")
+    parser.add_argument("--limit", "-n", type=int, metavar="N", help="generate markup for at most N rows")
     parser.add_argument("--scheme", choices=('file', 'http', 'https', 'none'), default='file', metavar='SCHEME', help="set scheme for img src attribute value; choices are file, http[s], and none; default is file")
     parser.add_argument("--sort", metavar="[-]MODE[:K]", help="sort rows")
     redaction.support_pattern_args(parser)
@@ -272,7 +308,8 @@ performed *before* --skip and --limit are applied.""",
     redaction_filter = redaction.build_filter_from_args(args)
     extractor = Extractor(args.caption, image_columns, csv_args, p_transform)
     sort_key = make_sort_key(args.sort, args.caption)
-    predicate = make_row_predicate(args.skip, args.limit, redaction_filter)
+    pre_predicate = make_row_pre_filter(args.skip, redaction_filter)
+    post_predicate = make_row_post_filter(args.limit)
     with open(args.input, 'r') as ifile:
-        perform(ifile, extractor, sort_key, predicate, args.template)
+        perform(ifile, extractor, pre_predicate, sort_key, post_predicate, args.template)
     return 0
