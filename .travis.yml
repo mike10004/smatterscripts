@@ -3,7 +3,6 @@ dist: xenial
 language: python
 
 python:
-  - "3.6"
   - "3.7"
 
 addons:
@@ -15,4 +14,4 @@ before_install:
 - /usr/bin/env | grep -i python
 
 script:
-- ant
+- ant -Dpython.executable=python3.7
