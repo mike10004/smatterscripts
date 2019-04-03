@@ -1,18 +1,15 @@
 dist: xenial
-
 language: python
-
+notifications:
+  email: false
 python:
   - "3.6"
   - "3.7"
-
 addons:
   apt:
     packages:
     - ant
-
 before_install:
 - which python
-
 script:
 - ant -Dpython.executable=$(which python)
