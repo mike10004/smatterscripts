@@ -20,7 +20,7 @@
     <target name="build" depends="pylocal.unittest,compile" description="compile and test">
     </target>
 
-    <target name="install" depends="build" description="create symlinks to executables">
+    <target name="install" depends="pylocal.pre-install,build" description="create symlinks to executables">
         <install-script>histo</install-script>
         <install-script>ressample</install-script>
         <install-script>csv2sortable</install-script>
@@ -30,5 +30,8 @@
     </target>
 
     <target name="clean" depends="pylocal.clean" description="clean up">
+    </target>
+
+    <target name="uninstall" depends="pylocal.uninstall" description="delete symlinks to executables">
     </target>
 </project>

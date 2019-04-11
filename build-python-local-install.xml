@@ -8,6 +8,10 @@
     <property name="install.dir" value="${user.home}/.local/bin"/>
     <property name="install.overwrite" value="false"/>
     <property name="python.executable" value="/usr/bin/python3"/>
+    <property name="install-log.dir" location="${project.dir}"/>
+    <property name="install-log.filename" value=".installed"/>
+    <property name="install-log.pathname" location="${install-log.dir}/${install-log.filename}"/>
+    <property name="install.symlink.prefix" value="sm"/>
 
     <macrodef name="check-main" >
         <text name="progname" optional="false"/>
@@ -54,7 +58,8 @@
     <macrodef name="install-script">
         <text name="prog" trim="true" optional="false"/>
         <sequential>
-            <symlink link="${install.dir}/@{prog}" resource="${bin.dir}/@{prog}" overwrite="${install.overwrite}"/>
+            <symlink link="${install.dir}/${install.symlink.prefix}@{prog}" resource="${bin.dir}/@{prog}" overwrite="${install.overwrite}"/>
+            <echo file="${install-log.pathname}" append="true">${install.dir}/${install.symlink.prefix}@{prog}${line.separator}</echo>
         </sequential>
     </macrodef>
 
@@ -69,5 +74,18 @@
     <target name="clean" description="delete generated files">
         <delete dir="${bin.dir}"/>
         <delete dir="${launchers.dir}"/>
+    </target>
+
+    <target name="pre-install" description="Prepare for script installation">
+        <delete file="${install-log.pathname}" failonerror="false"/>
+    </target>
+
+    <target name="uninstall" description="Remove installed script symlinks">
+        <exec executable="xargs" input="${install-log.pathname}">
+            <arg value="--no-run-if-empty"/>
+            <arg value="--verbose"/>
+            <arg value="rm"/>
+            <arg value="-f"/>
+        </exec>
     </target>
 </project>
