@@ -16,8 +16,8 @@ import json
 import errno
 import logging
 import _common
-from _common import redaction, predicates
-from typing import Callable, TextIO, List, Any, Pattern, Dict
+from _common import redaction
+from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence
 from argparse import ArgumentParser, Namespace
 
 
@@ -91,7 +91,7 @@ def read_config(args: Namespace) -> Dict[str, Any]:
 
 
 def _load_implicit_patterns(config) -> List[Pattern]:
-    pattern_tokens = config['redact_patterns'] or tuple()
+    pattern_tokens = config.get('redact_patterns', None) or tuple()
     patterns = map(re.compile, pattern_tokens)
     return list(patterns)
 
@@ -120,26 +120,32 @@ def build_parse_value(args: Namespace) -> Callable[[str], Any]:
 
 class ValueParser(object):
 
-    def __init__(self, parse_value: Callable[[str], Any], value_filter: Callable[[List[str]], bool], ignore_errors: bool=False):
+    def __init__(self, parse_value: Callable[[str], Any], value_filter: Callable[[List[str]], bool], mal_decision: Callable=None):
         self.parse_value = parse_value
         self.value_filter = value_filter
-        self.ignore_errors = ignore_errors
+        self.mal_decision = mal_decision or Ignorer()
+        self.num_ignored = 0
 
     def read_values(self, ifile: TextIO, skip: int=0, values_col: int=0) -> List[Any]:
         values = []
         reader = csv.reader(ifile)
         nskipped = 0
-        for row in reader:
+        for r, row in enumerate(reader):
             if nskipped < skip:
                 nskipped += 1
                 continue
-            try:
-                if self.value_filter(row):
-                    v = self.parse_value(row[values_col])
+            if self.value_filter(row):
+                v_str = row[values_col]
+                try:
+                    v = self.parse_value(v_str)
                     values.append(v)
-            except ValueError:
-                if not self.ignore_errors:
-                    raise
+                except ValueError as e:
+                    u = self.mal_decision(r, v_str, e)
+                    if u is not None:
+                        v = self.parse_value(u)
+                        values.append(v)
+                    else:
+                        self.num_ignored += 1
         return values
 
 
@@ -147,17 +153,51 @@ def _include_overflow_bin(setting: str, bin_count: int):
     return (setting == 'include') or ((setting == 'auto') and (bin_count > 0))
 
 
-def print_histo(args: Namespace):
+class Ignorer(object):
+
+    num_ignores = 0
+    max_notices = 10
+
+    def __call__(self, row_index, input_value, exception):
+        if self.num_ignores < self.max_notices:
+            _log.debug(" ignored value at row %d", row_index)
+        elif self.num_ignores == self.max_notices:
+            _log.debug(" ignored %d values; suppressing ignore notices from now on", self.num_ignores)
+        self.num_ignores += 1
+        return None
+
+
+def _make_mal_decision(setting: str) -> Callable:
+    def raise_error(row_index, input_value, exception):
+        _log.info(" raising error due to value at row %d", row_index)
+        raise exception
+    if setting == 'ignore':
+        return Ignorer()
+    if setting == 'error':
+        return raise_error
+    m = re.fullmatch(r'^replace:(\S+)$', setting)
+    if m is None:
+        raise ValueError("--malformed parameter does not match expected syntax")
+    replacement = m.group(1)
+    def replace_value(*args, **kwargs):
+        return replacement
+    return replace_value
+
+
+def print_histo(args: Namespace, ofile: TextIO=sys.stdout):
     config = read_config(args)
     parse_value = build_parse_value(args)
     value_filter = build_value_filter(config, args)
-    value_parser = ValueParser(parse_value, value_filter, args.ignore)
+    mal_decision = _make_mal_decision(args.malformed)
+    value_parser = ValueParser(parse_value, value_filter, mal_decision)
     if args.valuesfile is None or args.valuesfile == '-':
         print("histo: reading values from standard input", file=sys.stderr)
         values = value_parser.read_values(sys.stdin, args.skip, args.values_col)
     else:
         with open(args.valuesfile, 'r') as ifile:
             values = value_parser.read_values(ifile, args.skip, args.values_col)
+    if value_parser.num_ignored > 0:
+        _log.info(" %d value(s) ignored", value_parser.num_ignored)
     if len(values) < 1 and args.bins is None:
         _log.error(" no values read from file; can't guess bins")
         return 2
@@ -174,7 +214,7 @@ def print_histo(args: Namespace):
     values.sort()
     n = 0
     total = len(values)
-    writer = csv.writer(sys.stdout, delimiter=args.delim)
+    writer = csv.writer(ofile, delimiter=args.delim)
     if len(values) > 0:
         while values[n] < binmin and n < len(values):
             n += 1
@@ -192,33 +232,39 @@ def print_histo(args: Namespace):
         bottom += binstep
         top += binstep
         values = values[n:]
+    n = len(values)
     if _include_overflow_bin(args.overflow, n):
-        write_histo_row(writer, "More", len(values), total, args)
+        write_histo_row(writer, "More", n, total, args)
     return 0
 
 
-def main():
+def _create_arg_parser() -> ArgumentParser:
     parser = ArgumentParser(description="Compiles and prints a histogram of values in input.",
                             epilog="Reads config settings from JSON-formatted file named `.historc` in working "
                                    + "directory and `$HOME/.config/smatterscripts/historc`.")
     parser.add_argument("valuesfile", nargs='?', default='/dev/stdin', help="file to read values from; uses stdin if absent")
-    parser.add_argument("-d", "--delim", "--output-delimiter", dest="delim", metavar="CHAR", help="set output delimiter (use 'TAB' for tab; default is ',')", default=",")
+    parser.add_argument("-d", "--delim", "--output-delimiter", dest="delim", metavar="CHAR", help="set output delimiter (use TAB for tab; default is ',')", default=",")
     _common.add_logging_options(parser)
     parser.add_argument("-v", "--verbose", action="store_const", const='DEBUG', dest='log_level', help="set log level DEBUG")
     parser.add_argument("-c", "--values-col", default=0, type=int, metavar="K", help="column containing values to be counted (default 0)")
     parser.add_argument("-s", "--skip", default=0, type=int, metavar="N", help="rows to skip at beginning of file (default 0)")
-    parser.add_argument("-b", "--bins", default=None, nargs=2, metavar=("MIN","STEP"), type=str, help="bin specification")
-    parser.add_argument("-n", "--num-bins", default=10, type=int, metavar="N", help="if --bins is not specified, divide into this many bins (default 10)")
+    parser.add_argument("-b", "--bins", default=None, nargs=2, metavar=("MIN","STEP"), type=str, help="set bin minimum and bin increment")
+    parser.add_argument("-n", "--num-bins", default=10, type=int, metavar="N", help="assign values to N bins (default 10)")
     parser.add_argument("-t", "--value-type", choices=(int, float, str), default=float, type=type, metavar="TYPE", help="value type (default float)")
     parser.add_argument("--overflow", choices=('include', 'exclude', 'auto'), default='auto', help="include/exclude Less and More bins; 'auto' means include if nonempty")
-    parser.add_argument("--bin-precision", type=int, metavar="N", choices=tuple(range(32)), help="print float bin labels with specified precision")
-    parser.add_argument("--ignore", action="store_true", help="ignore un-parseable values", default=False)
+    parser.add_argument("--bin-precision", type=int, metavar="P", choices=tuple(range(32)), help="print bin labels with P decimal places")
+    parser.add_argument("--malformed", "-m", default="ignore", help="action on un-parseable values; default is 'ignore'; options include 'error' or 'replace:X' to replace such values with X")
     parser.add_argument("--relative", help="also print relative frequency", action="store_true")
-    parser.add_argument("--relative-precision", type=int, default=4, help="specify precision for formatting relative frequency values")
-    parser.add_argument("--redact", metavar='REGEX', help="redact rows from input that match regex")
-    parser.add_argument("--redact-patterns", metavar="FILE", help="redact rows from input that match regex on any line in FILE")
-    args = parser.parse_args()
+    parser.add_argument("--relative-precision", type=int, default=4, metavar="P", help="print relative frequency out to P decimal places")
+    parser.add_argument("--redact", metavar='REGEX', help="redact rows from input where any cell matches REGEX")
+    parser.add_argument("--redact-patterns", metavar="FILE", help="redact rows from input where any cell matches regex on any line in FILE")
+    return parser
+
+
+def main(argl: Sequence[str]=None, ofile: TextIO=sys.stdout):
+    parser = _create_arg_parser()
+    args = parser.parse_args(argl)
     if args.delim == 'TAB': args.delim = '\t'
     _common.config_logging(args)
-    return print_histo(args)
+    return print_histo(args, ofile)
 
