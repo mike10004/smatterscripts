@@ -17,11 +17,12 @@ import errno
 import logging
 import _common
 from _common import redaction
-from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence
+from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence, Tuple, Optional
 from argparse import ArgumentParser, Namespace
 
 
 _log = logging.getLogger("histo")
+_IDENTITY = lambda x: x
 
 
 def get_bin_spec(values, args):
@@ -120,11 +121,12 @@ def build_parse_value(args: Namespace) -> Callable[[str], Any]:
 
 class ValueParser(object):
 
-    def __init__(self, parse_value: Callable[[str], Any], value_filter: Callable[[List[str]], bool], mal_decision: Callable=None):
+    def __init__(self, parse_value: Callable[[str], Any], value_filter: Callable[[List[str]], bool], mal_decision: Callable=None, clamp: Callable=None):
         self.parse_value = parse_value
         self.value_filter = value_filter
         self.mal_decision = mal_decision or Ignorer()
         self.num_ignored = 0
+        self.clamp = clamp or _IDENTITY
 
     def read_values(self, ifile: TextIO, skip: int=0, values_col: int=0) -> List[Any]:
         values = []
@@ -138,12 +140,12 @@ class ValueParser(object):
                 v_str = row[values_col]
                 try:
                     v = self.parse_value(v_str)
-                    values.append(v)
+                    values.append(self.clamp(v))
                 except ValueError as e:
                     u = self.mal_decision(r, v_str, e)
                     if u is not None:
                         v = self.parse_value(u)
-                        values.append(v)
+                        values.append(self.clamp(v))
                     else:
                         self.num_ignored += 1
         return values
@@ -184,12 +186,27 @@ def _make_mal_decision(setting: str) -> Callable:
     return replace_value
 
 
+def _make_clamp(bounds: Optional[Tuple[str, str]], value_type: type) -> Callable:
+    if bounds is None:
+        return _IDENTITY
+    value_min, value_max = tuple(map(value_type, bounds))
+    assert value_min <= value_max
+    def clamp(x):
+        if x < value_min:
+            return value_min
+        if x > value_max:
+            return value_max
+        return x
+    return clamp
+
+
 def print_histo(args: Namespace, ofile: TextIO=sys.stdout):
     config = read_config(args)
     parse_value = build_parse_value(args)
     value_filter = build_value_filter(config, args)
     mal_decision = _make_mal_decision(args.malformed)
-    value_parser = ValueParser(parse_value, value_filter, mal_decision)
+    clamp = _make_clamp(args.clamp, args.value_type)
+    value_parser = ValueParser(parse_value, value_filter, mal_decision, clamp)
     if args.valuesfile is None or args.valuesfile == '-':
         print("histo: reading values from standard input", file=sys.stderr)
         values = value_parser.read_values(sys.stdin, args.skip, args.values_col)
@@ -258,6 +275,7 @@ def _create_arg_parser() -> ArgumentParser:
     parser.add_argument("--relative-precision", type=int, default=4, metavar="P", help="print relative frequency out to P decimal places")
     parser.add_argument("--redact", metavar='REGEX', help="redact rows from input where any cell matches REGEX")
     parser.add_argument("--redact-patterns", metavar="FILE", help="redact rows from input where any cell matches regex on any line in FILE")
+    parser.add_argument("--clamp", nargs=2, metavar=("min", "max"), help="clamp values into range [X,Y]")
     return parser
 
 

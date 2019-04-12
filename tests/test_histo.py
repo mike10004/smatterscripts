@@ -69,3 +69,62 @@ class ModuleMethodsTest(TestCase):
                     self.fail(f"expect parseable float at row {r} (label {label}; frequency {freq})")
                 total_freq += int(freq)
             self.assertEqual(len(data), total_freq)
+
+    def test__IDENTITY(self, identity=histo._IDENTITY, test_cases=(None, 0, -1, 1, float('inf'), -0.5, 0.5, 'x')):
+        with self.subTest():
+            for x in test_cases:
+                y = identity(x)
+                self.assertIs(x, y)
+
+    def test__make_clamp_None(self):
+        actual = histo._make_clamp(None, float)
+        self.assertIs(histo._IDENTITY, actual)
+
+    def test__make_clamp_inf(self):
+        bounds = '0', 'inf'
+        test_cases = [
+            (0, 0),
+            (0.001, 0.001),
+            (-0.001, 0.0),
+            (1, 1),
+            (-1, 0),
+            (100, 100),
+            (float('-inf'), 0),
+            (float('inf'), float('inf')),
+        ]
+        clamp = histo._make_clamp(bounds, float)
+        for val, expected in test_cases:
+            actual = clamp(val)
+            self.assertEqual(expected, actual)
+
+    def test__make_clamp_negative_inf(self):
+        bounds = '-inf', '0'
+        test_cases = [
+            (0, 0),
+            (0.001, 0),
+            (-0.001, -0.001),
+            (1, 0),
+            (-1, -1),
+            (100, 0),
+            (-100, -100),
+            (float('inf'), 0),
+            (float('-inf'), float('-inf')),
+        ]
+        clamp = histo._make_clamp(bounds, float)
+        for val, expected in test_cases:
+            actual = clamp(val)
+            self.assertEqual(expected, actual)
+
+    def test__make_clamp_closed(self):
+        bounds = '-0.5', '0.5'
+        test_cases = [
+            (0, 0),
+            (-0.5, -0.5),
+            (-0.6, -0.5),
+            (0.5, 0.5),
+            (0.6, 0.5),
+        ]
+        clamp = histo._make_clamp(bounds, float)
+        for val, expected in test_cases:
+            actual = clamp(val)
+            self.assertEqual(expected, actual)
