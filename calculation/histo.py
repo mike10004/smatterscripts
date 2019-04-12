@@ -16,13 +16,19 @@ import json
 import errno
 import logging
 import _common
+import calculation
 from _common import redaction
 from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence, Tuple, Optional
 from argparse import ArgumentParser, Namespace
+from . import ValueParser, Ignorer
 
 
-_log = logging.getLogger("histo")
-_IDENTITY = lambda x: x
+_log = logging.getLogger(__name__)
+_IDENTITY = calculation._IDENTITY
+_ACCUM_NONE = 'none'
+_ACCUM_INCREASE = 'increase'
+_ACCUM_COMPLEMENT = 'complement'
+_ACCUM_MODES = (_ACCUM_NONE, _ACCUM_INCREASE, _ACCUM_COMPLEMENT)
 
 
 def get_bin_spec(values, args):
@@ -114,61 +120,9 @@ def build_value_filter(config: Dict, args: Namespace) -> Callable[[List[str]], b
     return _build_row_filter(patterns)
 
 
-def build_parse_value(args: Namespace) -> Callable[[str], Any]:
-    _log.debug(" reading values as type %s with invert=%s", args.value_type, args.invert)
-    if args.invert:
-        return lambda x: -(args.value_type(x))
-    return args.value_type
-
-
-class ValueParser(object):
-
-    def __init__(self, parse_value: Callable[[str], Any], value_filter: Callable[[List[str]], bool], mal_decision: Callable=None, clamp: Callable=None):
-        self.parse_value = parse_value
-        self.value_filter = value_filter
-        self.mal_decision = mal_decision or Ignorer()
-        self.num_ignored = 0
-        self.clamp = clamp or _IDENTITY
-
-    def read_values(self, ifile: TextIO, skip: int=0, values_col: int=0) -> List[Any]:
-        values = []
-        reader = csv.reader(ifile)
-        nskipped = 0
-        for r, row in enumerate(reader):
-            if nskipped < skip:
-                nskipped += 1
-                continue
-            if self.value_filter(row):
-                v_str = row[values_col]
-                try:
-                    v = self.parse_value(v_str)
-                    values.append(self.clamp(v))
-                except ValueError as e:
-                    u = self.mal_decision(r, v_str, e)
-                    if u is not None:
-                        v = self.parse_value(u)
-                        values.append(self.clamp(v))
-                    else:
-                        self.num_ignored += 1
-        return values
-
-
 def _include_overflow_bin(setting: str, bin_count: int):
     return (setting == 'include') or ((setting == 'auto') and (bin_count > 0))
 
-
-class Ignorer(object):
-
-    num_ignores = 0
-    max_notices = 10
-
-    def __call__(self, row_index, input_value, exception):
-        if self.num_ignores < self.max_notices:
-            _log.debug(" ignored value at row %d", row_index)
-        elif self.num_ignores == self.max_notices:
-            _log.debug(" ignored %d values; suppressing ignore notices from now on", self.num_ignores)
-        self.num_ignores += 1
-        return None
 
 
 def _make_mal_decision(setting: str) -> Callable:
@@ -188,28 +142,22 @@ def _make_mal_decision(setting: str) -> Callable:
     return replace_value
 
 
-def _make_clamp(bounds: Optional[Tuple[str, str]], value_type: type) -> Callable:
-    if bounds is None:
-        return _IDENTITY
-    value_min, value_max = tuple(map(value_type, bounds))
-    assert value_min <= value_max
-    def clamp(x):
-        if x < value_min:
-            return value_min
-        if x > value_max:
-            return value_max
-        return x
-    return clamp
+def _to_freq(n: int, accumulation: int, total: int, mode: str):
+    if mode == _ACCUM_NONE:
+        return n
+    if mode == _ACCUM_INCREASE:
+        return accumulation + n
+    if mode == _ACCUM_COMPLEMENT:
+        return total - (accumulation + n)
+    raise ValueError(f"unrecognized mode: {mode}")
 
 
 def print_histo(args: Namespace, ofile: TextIO=sys.stdout):
-    if args.accumulate == 'reverse':
-        raise NotImplementedError("--accumulate=reverse is not yet supported")
     config = read_config(args)
-    parse_value = build_parse_value(args)
+    parse_value = calculation.build_parse_value(args.value_type, args.invert)
     value_filter = build_value_filter(config, args)
     mal_decision = _make_mal_decision(args.malformed)
-    clamp = _make_clamp(args.clamp, args.value_type)
+    clamp = calculation.make_clamp(args.clamp, args.value_type)
     value_parser = ValueParser(parse_value, value_filter, mal_decision, clamp)
     if args.valuesfile is None or args.valuesfile == '-':
         print("histo: reading values from standard input", file=sys.stderr)
@@ -250,18 +198,16 @@ def print_histo(args: Namespace, ofile: TextIO=sys.stdout):
         while n < len(values) and values[n] < top:
             n += 1
         _log.debug(" bin[%d]: [%s, %s) -> %d (%d remaining)" % (b, bottom, top, n, len(values)))
-        frequency = n
-        if args.accumulate == 'forward':
-            frequency = accumulation + n
+        frequency = _to_freq(n, accumulation, total, args.accumulate)
         write_histo_row(writer, bottom, frequency, total, args)
         bottom += binstep
         top += binstep
         values = values[n:]
+        accumulation += n
     n = len(values)
-    frequency = n
-    if args.accumulate == 'forward':
-        frequency = accumulation + n
-    if _include_overflow_bin(args.overflow, frequency):
+    accumulation += n
+    frequency = _to_freq(n, accumulation, total, args.accumulate)
+    if _include_overflow_bin(args.overflow, n):
         write_histo_row(writer, "More", frequency, total, args)
     return 0
 
@@ -289,7 +235,7 @@ def _create_arg_parser() -> ArgumentParser:
     parser.add_argument("--clamp", nargs=2, metavar=("min", "max"), help="clamp values into range [X,Y]")
     parser.add_argument("--invert", action='store_true', help="invert parsed values")
     parser.add_argument("--epsilon", type=float, metavar="E", default=1e-5, help="set pad value for automatic bin size calculation")
-    parser.add_argument("--accumulate", default='none', metavar='MODE', choices=('none', 'forward', 'reverse'), help="set frequency accumulation mode; choices are none, forward, or reverse")
+    parser.add_argument("--accumulate", default=_ACCUM_NONE, metavar='MODE', choices=_ACCUM_MODES, help="set frequency accumulation mode; choices are " + str(set(_ACCUM_MODES)))
     return parser
 
 

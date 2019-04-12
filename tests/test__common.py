@@ -1,11 +1,12 @@
 from unittest import TestCase
 from _common import NullTerminatedInput, StreamContext
-import tempfile
 import io
 import os
 import sys
+import _common
 import logging
 import os.path
+import tempfile
 
 
 _log = logging.getLogger(__name__)
@@ -62,3 +63,8 @@ class StreamContextTest(TestCase):
         self.assertTrue(sys.stdout.writable())
 
 
+class LoggingTest(TestCase):
+
+    def test_level_strs(self):
+        levels = list(map(lambda s: logging.__dict__[s], _common._LOG_LEVEL_CHOICES))
+        self.assertEqual(len(levels), len(set(levels)))

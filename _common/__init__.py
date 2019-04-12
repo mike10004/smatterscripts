@@ -50,7 +50,7 @@ def add_logging_options(parser: ArgumentParser):
     parser.add_argument("-l", "--log-level", dest="log_level",
                         metavar="LEVEL",
                         default='INFO',
-                        help="set log level to one of " + str(_LOG_LEVEL_CHOICES))
+                        help="set log level to one of " + ", ".join(_LOG_LEVEL_CHOICES))
 
 
 def add_output_option(parser: ArgumentParser, shortopt="-o", longopt="--output"):

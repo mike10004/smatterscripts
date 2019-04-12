@@ -15,6 +15,7 @@
         <generate-executable module="shelltools.htmljux">htmljux</generate-executable>
         <generate-executable module="shelltools.clusters">clusters</generate-executable>
         <generate-executable module="shelltools.streamproduct">streamproduct</generate-executable>
+        <generate-executable module="calculation.roc">roc</generate-executable>
     </target>
 
     <target name="build" depends="pylocal.unittest,compile" description="compile and test">
@@ -27,6 +28,7 @@
         <install-script>htmljux</install-script>
         <install-script>clusters</install-script>
         <install-script>streamproduct</install-script>
+        <install-script>roc</install-script>
     </target>
 
     <target name="clean" depends="pylocal.clean" description="clean up">
