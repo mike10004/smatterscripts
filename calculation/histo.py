@@ -244,6 +244,7 @@ def print_histo(args: Namespace, ofile: TextIO=sys.stdout):
     top = bottom + binstep
     accumulation = 0
     for b in range(0, numbins):
+        n = 0
         while n < len(values) and values[n] < top:
             n += 1
         _log.debug(" bin[%d]: [%s, %s) -> %d (%d remaining)" % (b, bottom, top, n, len(values)))
