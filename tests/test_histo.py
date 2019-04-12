@@ -1,6 +1,7 @@
 from calculation import histo
 from calculation.histo import ValueParser
 from unittest import TestCase
+from argparse import Namespace
 import io
 import re
 import os
@@ -127,4 +128,18 @@ class ModuleMethodsTest(TestCase):
         clamp = histo._make_clamp(bounds, float)
         for val, expected in test_cases:
             actual = clamp(val)
+            self.assertEqual(expected, actual)
+
+    def test_build_parse_value(self):
+        test_cases = [
+            (float, None, '1.5', 1.5),
+            (float, True, '1.5', -1.5),
+            (float, None, '0', 0),
+            (float, True, '0', 0),
+            (int, True, '-1', 1),
+        ]
+        for value_type, invert, token, expected in test_cases:
+            args = Namespace(value_type=value_type, invert=invert)
+            parse_value = histo.build_parse_value(args)
+            actual = parse_value(token)
             self.assertEqual(expected, actual)

@@ -115,7 +115,9 @@ def build_value_filter(config: Dict, args: Namespace) -> Callable[[List[str]], b
 
 
 def build_parse_value(args: Namespace) -> Callable[[str], Any]:
-    _log.debug(" reading values as type %s" % args.value_type)
+    _log.debug(" reading values as type %s with invert=%s", args.value_type, args.invert)
+    if args.invert:
+        return lambda x: -(args.value_type(x))
     return args.value_type
 
 
@@ -285,6 +287,7 @@ def _create_arg_parser() -> ArgumentParser:
     parser.add_argument("--redact", metavar='REGEX', help="redact rows from input where any cell matches REGEX")
     parser.add_argument("--redact-patterns", metavar="FILE", help="redact rows from input where any cell matches regex on any line in FILE")
     parser.add_argument("--clamp", nargs=2, metavar=("min", "max"), help="clamp values into range [X,Y]")
+    parser.add_argument("--invert", action='store_true', help="invert parsed values")
     parser.add_argument("--epsilon", type=float, metavar="E", default=1e-5, help="set pad value for automatic bin size calculation")
     parser.add_argument("--accumulate", default='none', metavar='MODE', choices=('none', 'forward', 'reverse'), help="set frequency accumulation mode; choices are none, forward, or reverse")
     return parser
