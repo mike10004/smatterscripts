@@ -29,7 +29,7 @@ def get_bin_spec(values, args):
     numbins = args.num_bins
     if args.bins is None:
         binmin = min(values)
-        binstep = (max(values) + 1e-5 - binmin) / numbins
+        binstep = ((max(values) + args.epsilon) - binmin) / numbins
     else:
         binmin, binstep = [args.value_type(x) for x in args.bins]
     _log.debug(" bin spec: (%s, %s, %s) (%s, %s, %s); args.value_type = %s" % 
@@ -201,6 +201,8 @@ def _make_clamp(bounds: Optional[Tuple[str, str]], value_type: type) -> Callable
 
 
 def print_histo(args: Namespace, ofile: TextIO=sys.stdout):
+    if args.accumulate == 'reverse':
+        raise NotImplementedError("--accumulate=reverse is not yet supported")
     config = read_config(args)
     parse_value = build_parse_value(args)
     value_filter = build_value_filter(config, args)
@@ -240,18 +242,24 @@ def print_histo(args: Namespace, ofile: TextIO=sys.stdout):
         values = values[n:]
     bottom = binmin
     top = bottom + binstep
+    accumulation = 0
     for b in range(0, numbins):
-        n = 0
         while n < len(values) and values[n] < top:
             n += 1
         _log.debug(" bin[%d]: [%s, %s) -> %d (%d remaining)" % (b, bottom, top, n, len(values)))
-        write_histo_row(writer, bottom, n, total, args)
+        frequency = n
+        if args.accumulate == 'forward':
+            frequency = accumulation + n
+        write_histo_row(writer, bottom, frequency, total, args)
         bottom += binstep
         top += binstep
         values = values[n:]
     n = len(values)
-    if _include_overflow_bin(args.overflow, n):
-        write_histo_row(writer, "More", n, total, args)
+    frequency = n
+    if args.accumulate == 'forward':
+        frequency = accumulation + n
+    if _include_overflow_bin(args.overflow, frequency):
+        write_histo_row(writer, "More", frequency, total, args)
     return 0
 
 
@@ -276,6 +284,8 @@ def _create_arg_parser() -> ArgumentParser:
     parser.add_argument("--redact", metavar='REGEX', help="redact rows from input where any cell matches REGEX")
     parser.add_argument("--redact-patterns", metavar="FILE", help="redact rows from input where any cell matches regex on any line in FILE")
     parser.add_argument("--clamp", nargs=2, metavar=("min", "max"), help="clamp values into range [X,Y]")
+    parser.add_argument("--epsilon", type=float, metavar="E", default=1e-5, help="set pad value for automatic bin size calculation")
+    parser.add_argument("--accumulate", default='none', metavar='MODE', choices=('none', 'forward', 'reverse'), help="set frequency accumulation mode; choices are none, forward, or reverse")
     return parser
 
 
