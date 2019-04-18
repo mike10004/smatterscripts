@@ -46,6 +46,7 @@ DEFAULT_TEMPLATE = """<!DOCTYPE html>
 .caption {
     float: left;
 }
+{{ css }}
         </style>
     </head>
     <body>
@@ -92,12 +93,14 @@ class PageModel(object):
 
 class Renderer(object):
 
-    def __init__(self, template: jinja2.Template):
+    def __init__(self, template: jinja2.Template, css: str=None):
         self.template = template
+        self.css = css
 
     def render(self, page_model: PageModel):
         _log.debug("rendering %d rows", len(page_model.rows))
         page_attrs = vars(page_model)
+        page_attrs['css'] = self.css or ''
         return self.template.render(**page_attrs)
 
 
@@ -229,7 +232,8 @@ def perform(ifile: TextIO,
             pre_predicate: Optional[Callable]=None,
             sort_spec: Optional[SortSpecification]=None,
             post_predicate: Optional[Callable]=None,
-            template: str=None,
+            template: Optional[str]=None,
+            css_file: Optional[str]=None,
             ofile: TextIO=sys.stdout):
     rows = extractor.extract(ifile, pre_predicate, sort_spec, post_predicate)
     page_model = PageModel(rows)
@@ -240,7 +244,11 @@ def perform(ifile: TextIO,
         template = env.from_string(DEFAULT_TEMPLATE)
     else:
         raise NotImplementedError("custom template")
-    renderer = Renderer(template)
+    css = None
+    if css_file is not None:
+        with open(css_file, 'r') as ifile:
+            css = ifile.read()
+    renderer = Renderer(template, css)
     rendering = renderer.render(page_model)
     print(rendering, file=ofile)
 
@@ -285,6 +293,7 @@ Redaction and --skip are applied before sorting; --limit is applied after.""",
     parser.add_argument("--limit", "-n", type=int, metavar="N", help="generate markup for at most N rows")
     parser.add_argument("--scheme", choices=('file', 'http', 'https', 'none'), default='file', metavar='SCHEME', help="set scheme for img src attribute value; choices are file, http[s], and none; default is file")
     parser.add_argument("--sort", metavar="[-]MODE[:K]", help="sort rows")
+    parser.add_argument("--css", metavar="FILE", help="copy contents of FILE into <style>")
     redaction.support_pattern_args(parser)
     args = parser.parse_args(args)
     if args.print_template:
@@ -311,5 +320,5 @@ Redaction and --skip are applied before sorting; --limit is applied after.""",
     pre_predicate = make_row_pre_filter(args.skip, redaction_filter)
     post_predicate = make_row_post_filter(args.limit)
     with open(args.input, 'r') as ifile:
-        perform(ifile, extractor, pre_predicate, sort_key, post_predicate, args.template)
+        perform(ifile, extractor, pre_predicate, sort_key, post_predicate, args.template, args.css)
     return 0

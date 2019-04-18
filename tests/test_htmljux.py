@@ -1,5 +1,6 @@
 import io
 import re
+import jinja2
 import os.path
 import logging
 import operator
@@ -240,3 +241,30 @@ class ExtractorTest(TestCase):
             map(operator.itemgetter(1), htmljux.Extractor()._enumerate_rows(io.StringIO(csv_text), pre_predicate, sort_key, post_predicate)))
         self.assertListEqual([['10', 'a', 'b'], ['5', 'j', 'k']], sorted_rows)
 
+
+class RendererTest(TestCase):
+
+    def test_render_css(self):
+        self.do_render(css="""
+        /* some unique text */
+        img {
+           max-width: 400px;
+        }
+""")
+
+    def test_render_nocss(self):
+        self.do_render(css=None)
+
+    def do_render(self, css):
+        env = jinja2.Environment(
+            autoescape=jinja2.select_autoescape(['html', 'xml'])
+        )
+        template = env.from_string(htmljux.DEFAULT_TEMPLATE)
+        renderer = htmljux.Renderer(template, css)
+        rows = [
+            htmljux.Row('hello', [htmljux.Image('file:///tmp/foo.jpg', 'foo'), htmljux.Image('file:///tmp/bar.jpg', 'bar')])
+        ]
+        page_model = htmljux.PageModel(rows)
+        html = renderer.render(page_model)
+        if css:
+            self.assertIn(css, html)
