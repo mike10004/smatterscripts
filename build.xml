@@ -17,6 +17,7 @@
         <generate-executable module="shelltools.streamproduct">streamproduct</generate-executable>
         <generate-executable module="calculation.roc">roc</generate-executable>
         <generate-executable module="calculation.numfilter">numfilter</generate-executable>
+        <generate-executable module="shelltools.piptool">piptool</generate-executable>
     </target>
 
     <target name="build" depends="pylocal.unittest,compile" description="compile and test">
@@ -31,6 +32,7 @@
         <install-script>streamproduct</install-script>
         <install-script>roc</install-script>
         <install-script>numfilter</install-script>
+        <install-script>piptool</install-script>
     </target>
 
     <target name="clean" depends="pylocal.clean" description="clean up">
