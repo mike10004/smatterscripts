@@ -15,6 +15,7 @@
         <generate-executable module="shelltools.htmljux">htmljux</generate-executable>
         <generate-executable module="shelltools.clusters">clusters</generate-executable>
         <generate-executable module="shelltools.streamproduct">streamproduct</generate-executable>
+        <generate-executable module="shelltools.csvcoledit">csvcoledit</generate-executable>
         <generate-executable module="calculation.roc">roc</generate-executable>
         <generate-executable module="calculation.numfilter">numfilter</generate-executable>
         <generate-executable module="shelltools.piptool">piptool</generate-executable>
@@ -30,6 +31,7 @@
         <install-script>htmljux</install-script>
         <install-script>clusters</install-script>
         <install-script>streamproduct</install-script>
+        <install-script>csvcoledit</install-script>
         <install-script>roc</install-script>
         <install-script>numfilter</install-script>
         <install-script>piptool</install-script>

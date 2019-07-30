@@ -3,61 +3,95 @@
 #
 #  csvcoledit.py
 #
-#  (c) 2015 Mike Chaberski
+#  (c) 2018 Mike Chaberski
 #  
 #  MIT License
 
-import sys
 import csv
 from argparse import ArgumentParser
 import logging
 import _common
+from typing import Collection, TextIO, List, Callable
+
 
 _log = logging.getLogger(__name__)
 
 
-def _open_ofile_and_do(ifile, opfunction, args):
-    if args.output is None or args.output == '-':
-        ofile = sys.stdout
-        return opfunction(ifile, ofile, args)
-    else:
-        with open(args.output, 'w') as ofile:
-            return opfunction(ifile, ofile, args)
+class Swapper(object):
 
-def do_swap(ifile, ofile, args):
-    col1, col2 = args.swap
+    def __init__(self, col1: int, col2: int):
+        self.col1 = col1
+        self.col2 = col2
+
+    def __call__(self, row: list):
+        try:
+            tmp = row[self.col1]
+            row[self.col1] = row[self.col2]
+            row[self.col2] = tmp
+        except IndexError:
+            pass
+
+
+class Deleter(object):
+
+    def __init__(self, cols: Collection[int]):
+        self.cols = cols
+
+    def __call__(self, row):
+        try:
+            keep = filter(lambda col: col not in self.cols, range(len(row)))
+            row_copy = [row[i] for i in keep]
+            for i in range(len(row_copy)):
+                row[i] = row_copy[i]
+            for i in range(len(row) - 1, len(row_copy) - 1, -1):
+                del row[i]
+        except IndexError:
+            pass
+
+
+def _parse_colspec(spec: str) -> Collection[int]:
+    cols = set()
+    tokens = spec.split(',')
+    for token in tokens:
+        if '-' in token:
+            raise NotImplementedError("column range specifications not yet supported")
+        if token:
+            cols.add(int(token))
+    return frozenset(cols)
+
+
+def operate(ifile: TextIO, ofile: TextIO, operations: List[Callable[[list], None]], writer_kwargs=None):
     reader = csv.reader(ifile)
-    writer = csv.writer(ofile)
+    writer_kwargs = writer_kwargs or {}
+    writer = csv.writer(ofile, **writer_kwargs)
     for row in reader:
-        if max(col1, col2) >= len(row):
-            writer.writerow(row)
-        else:
-            tmp = row[col1]
-            row[col1] = row[col2]
-            row[col2] = tmp
-            writer.writerow(row)
+        for operation in operations:
+            operation(row)
+        writer.writerow(row)
     return 0
 
-def _has_operation(args):
-    return not (args.swap is None)  # ...and args.other is None and args.another is None...
 
 def main():
-    parser = ArgumentParser(description="Operate on CSV input. Not all operations can be combined.")
+    parser = ArgumentParser(description="Operate on CSV input. Currently supports column swap and delete only. Be careful when combining operations; delete always happens before swap.")
     _common.add_logging_options(parser)
     parser.add_argument("csvfile", nargs="?", help="input file (if absent, read from stdin)")
-    parser.add_argument("--swap", nargs=2, type=int, help="operation: swap columns at zero-based indices A and B", metavar=('A', 'B'))
+    parser.add_argument("--swap", nargs=2, type=int, help="operation: swap columns at zero-based indexes A and B", metavar=('A', 'B'))
+    parser.add_argument("--delete", metavar="SPEC", help="delete one or more columns; SPEC is column-delimited list")
     parser.add_argument("-o", "--output", help="print output to file instead of stdout")
     args = parser.parse_args()
     _common.config_logging(args)
-    if not _has_operation(args):
-        _log.warning("no operations specified")
+    operations = []
+    if args.delete is not None:
+        operations.append(Deleter(_parse_colspec(args.delete)))
     if args.swap is not None:
-        opfunction = do_swap
-    else:
-        raise ValueError("unhandled absence of operation")
-    if args.csvfile is None or args.csvfile == '-':
-        ifile = sys.stdin
-        return _open_ofile_and_do(ifile, opfunction, args)
-    else:
-        with open(args.csvfile, 'r') as ifile:
-            return _open_ofile_and_do(ifile, opfunction, args)
+        operations.append(Swapper(args.swap[0], args.swap[1]))
+    if not operations:
+        _log.warning("no operations specified")
+    if not args.csvfile:
+        args.csvfile = '/dev/stdin'
+    if not args.output:
+        args.output = '/dev/stdout'
+    with open(args.csvfile, 'r') as ifile:
+        with open(args.ofile, 'w') as ofile:
+            operate(ifile, ofile, operations)
+    return 0
