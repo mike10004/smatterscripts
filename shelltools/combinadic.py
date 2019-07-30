@@ -44,6 +44,7 @@ def get_random_subset(n, k):
     """
     return get_random_subsets(n, k, 1).pop()
 
+
 def get_random_subsets(n, k, m=1):
     """Get a list of m sets of size k, where each set is a subset of [0, n). 
     Sets are randomly selected from all possible subsets of [0, n).
@@ -56,11 +57,10 @@ def get_random_subsets(n, k, m=1):
     combos = [get_combo(n, k, i) for i in subset_indices]
     return combos
 
-REQUIRED_NUM_ARGS = 2
 
 def _parse_args():
-    from optparse import OptionParser
-    parser = OptionParser(usage="""
+    from argparse import ArgumentParser
+    parser = ArgumentParser(usage="""
     %prog [options] n k
 Prints combinations of k elements out of n, or a single combination as 
 specified by the options flagged. In precise terms,
@@ -75,30 +75,27 @@ Examples
     %prog -i147 10 5
     %prog -r20 10 5
     """)
-    parser.add_option("-i", "--index", 
-                    help="Print the subset at index INTEGER in the list"+
-                    " of unique subsets.",
-                    metavar="INTEGER",
-                    action="store",
-                    type="int")
-    parser.add_option("-r", "--random", 
-                    metavar="INTEGER",
-                    help="Print INTEGER randomly selected subsets.",
-                    action="store",
-                    type="int")
-    options, args = parser.parse_args()
-    if len(args) != REQUIRED_NUM_ARGS:
-        parser.error("Must have %d arguments" % REQUIRED_NUM_ARGS)
-    return options, args
+    parser.add_argument("superset_size", metavar="N", type=int)
+    parser.add_argument("subset_size", metavar="K", type=int)
+    parser.add_argument("-i", "--index", help="Print the subset at index W in the list of unique subsets.",
+                        metavar="W",
+                        action="store",
+                        type=int)
+    parser.add_argument("-r", "--random",
+                        metavar="R",
+                        help="Print R randomly selected subsets.",
+                        type=int)
+    args = parser.parse_args()
+    return args
+
 
 def print_combo(combo):
-    #print ' '.join([str(x) for x in get_combo(n, k, i)])
     print(' '.join([str(x) for x in combo]))
 
 
 def main():
-    options, args = _parse_args()
-    n, k = int(args[0]), int(args[1])
+    options = _parse_args()
+    n, k = options.superset_size, options.subset_size
     if options.index is not None:
         print_combo(get_combo(n, k, options.index))
     elif options.random is not None:
