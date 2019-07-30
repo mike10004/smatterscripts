@@ -30,6 +30,14 @@ class ValueParser(object):
         self.num_ignored = 0
         self.clamp = clamp or _IDENTITY
 
+    def _handle_bad(self, v_str: str, r: int, e: Exception, values: list):
+        u = self.mal_decision(r, v_str, e)
+        if u is not None:
+            v = self.parse_value(u)
+            values.append(self.clamp(v))
+        else:
+            self.num_ignored += 1
+
     def read_values(self, ifile: TextIO, skip: int=0, values_col: int=0) -> List[Any]:
         values = []
         reader = csv.reader(ifile)
@@ -39,17 +47,16 @@ class ValueParser(object):
                 nskipped += 1
                 continue
             if self.value_filter(row):
-                v_str = row[values_col]
+                try:
+                    v_str = row[values_col]
+                except IndexError as e:
+                    self._handle_bad('', r, e, values)
+                    continue
                 try:
                     v = self.parse_value(v_str)
                     values.append(self.clamp(v))
                 except ValueError as e:
-                    u = self.mal_decision(r, v_str, e)
-                    if u is not None:
-                        v = self.parse_value(u)
-                        values.append(self.clamp(v))
-                    else:
-                        self.num_ignored += 1
+                    self._handle_bad(v_str, r, e, values)
         return values
 
 

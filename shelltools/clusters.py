@@ -149,7 +149,6 @@ def main():
     parser.add_argument("-t", "--threshold", type=float, default=0.0, help="set connectedness threshold")
     parser.add_argument("-c", "--comparison", choices=('ge', 'gt', 'lt', 'le', 'eq'), help="operator to use when comparing weight to threshold")
     _common.add_logging_options(parser)
-    parser.add_argument("-l", "--log-level", choices=('DEBUG', 'INFO', 'WARNING', 'ERROR'), default='INFO', help="set log level", metavar="LEVEL")
     parser.add_argument("--weight-col", type=int, default=0)
     parser.add_argument("--label-cols", type=int, nargs=2, default=(1, 2), help="indexes of columns containing vertex labels")
     parser.add_argument("--max-print", type=int, default=10)
