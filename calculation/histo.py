@@ -18,7 +18,7 @@ import logging
 import _common
 import calculation
 from _common import redaction
-from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence, Tuple, Optional
+from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence
 from argparse import ArgumentParser, Namespace
 from . import ValueParser, Ignorer
 
@@ -43,12 +43,14 @@ def get_bin_spec(values, args):
             str(type(binmin)), str(type(binstep)), str(type(numbins)), str(args.value_type)))
     return binmin, binstep, numbins
 
+
 def format_float(value, args):
     if args.relative_precision < 1 or args.relative_precision > 255:
         print("histo: invalid relative precision value:", args.relative_precision, file=sys.stderr)
         args.relative_precision = 4
     fmt = "%" + str(args.relative_precision) + "f"
     return fmt % value
+
 
 def write_histo_row(writer, binlabel, count, total, args):
     if isinstance(binlabel, float) and args.bin_precision is not None:
@@ -62,6 +64,7 @@ def write_histo_row(writer, binlabel, count, total, args):
     else:
         row = [binlabel, count]
     writer.writerow(row)
+
 
 def print_categorical_histo(values, args):
     writer = csv.writer(sys.stdout)
@@ -90,7 +93,7 @@ def read_config(args: Namespace) -> Dict[str, Any]:
     for pathname in pathnames:
         try:
             with open(pathname, 'r') as ifile:
-               config.update(json.load(ifile))
+                config.update(json.load(ifile))
         except IOError as e:
             if errno.ENOENT != e.errno:
                 _log.warning("failed to load patterns from %s due to IOError: %s", pathname, e)
@@ -105,6 +108,7 @@ def _load_implicit_patterns(config) -> List[Pattern]:
 
 def _build_row_filter(patterns: List[Pattern]) -> Callable[[List[str]], bool]:
     cell_filter = redaction.build_filter_from_patterns(patterns)
+
     def do_filter(row):
         return all(map(cell_filter, row))
     return do_filter
@@ -124,7 +128,6 @@ def _include_overflow_bin(setting: str, bin_count: int):
     return (setting == 'include') or ((setting == 'auto') and (bin_count > 0))
 
 
-
 def _make_mal_decision(setting: str) -> Callable:
     def raise_error(row_index, input_value, exception):
         _log.info(" raising error due to value at row %d", row_index)
@@ -137,6 +140,8 @@ def _make_mal_decision(setting: str) -> Callable:
     if m is None:
         raise ValueError("--malformed parameter does not match expected syntax")
     replacement = m.group(1)
+
+    # noinspection PyUnusedLocal
     def replace_value(*args, **kwargs):
         return replacement
     return replace_value
@@ -222,7 +227,7 @@ def _create_arg_parser() -> ArgumentParser:
     parser.add_argument("-v", "--verbose", action="store_const", const='DEBUG', dest='log_level', help="set log level DEBUG")
     parser.add_argument("-c", "--values-col", default=0, type=int, metavar="K", help="column containing values to be counted (default 0)")
     parser.add_argument("-s", "--skip", default=0, type=int, metavar="N", help="rows to skip at beginning of file (default 0)")
-    parser.add_argument("-b", "--bins", default=None, nargs=2, metavar=("MIN","STEP"), type=str, help="set bin minimum and bin increment")
+    parser.add_argument("-b", "--bins", default=None, nargs=2, metavar=("MIN", "STEP"), type=str, help="set bin minimum and bin increment")
     parser.add_argument("-n", "--num-bins", default=10, type=int, metavar="N", help="assign values to N bins (default 10)")
     parser.add_argument("-t", "--value-type", choices=(int, float, str), default=float, type=type, metavar="TYPE", help="value type (default float)")
     parser.add_argument("--overflow", choices=('include', 'exclude', 'auto'), default='auto', help="include/exclude Less and More bins; 'auto' means include if nonempty")
@@ -242,7 +247,7 @@ def _create_arg_parser() -> ArgumentParser:
 def main(argl: Sequence[str]=None, ofile: TextIO=sys.stdout):
     parser = _create_arg_parser()
     args = parser.parse_args(argl)
-    if args.delim == 'TAB': args.delim = '\t'
+    if args.delim == 'TAB':
+        args.delim = '\t'
     _common.config_logging(args)
     return print_histo(args, ofile)
-

@@ -2,8 +2,12 @@ from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence, Tuple, 
 import csv
 import logging
 
+
 _log = logging.getLogger(__name__)
-_IDENTITY = lambda x: x
+
+
+def _IDENTITY(x):
+    return x
 
 
 class Ignorer(object):
@@ -18,7 +22,6 @@ class Ignorer(object):
             _log.debug(" ignored %d values; suppressing ignore notices from now on", self.num_ignores)
         self.num_ignores += 1
         return None
-
 
 
 class ValueParser(object):
@@ -65,6 +68,7 @@ def make_clamp(bounds: Optional[Tuple[str, str]], value_type: type) -> Callable:
         return _IDENTITY
     value_min, value_max = tuple(map(value_type, bounds))
     assert value_min <= value_max
+
     def clamp(x):
         if x < value_min:
             return value_min
@@ -79,5 +83,3 @@ def build_parse_value(value_type: type, invert: bool) -> Callable[[str], Any]:
     if invert:
         return lambda x: -(value_type(x))
     return value_type
-
-
