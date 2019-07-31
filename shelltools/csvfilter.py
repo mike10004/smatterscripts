@@ -9,6 +9,7 @@ import _common
 from _common import StreamContext
 from typing import TextIO
 from argparse import ArgumentParser, Namespace
+from shelltools import csvutils
 
 
 _log = logging.getLogger(__name__)
@@ -37,12 +38,18 @@ class Filter(object):
         f = Filter(reference, operator, epsilon)
         return f
 
+
 def _transform_value(value_str: str):
     return float(value_str)
 
 
-def do_filter(ifile: TextIO, filterer: Filter, ofile: TextIO, value_column=0, input_delimiter=',', output_delimiter=',', error_reaction='auto'):
+def do_filter(ifile: TextIO, filterer: Filter, ofile: TextIO, value_column: int=0, input_delimiter: str=',', output_delimiter: str=',', error_reaction: str='auto', output_colspec: str = None):
     output = csv.writer(ofile, delimiter=output_delimiter)
+    output_xform = csvutils.parse_column_spec(output_colspec)
+
+    def writerow(row_):
+        indexes = output_xform(row_)
+        output.writerow([row_[i] for i in indexes])
     nrows, nerrors = 0, 0
     for row in csv.reader(ifile, delimiter=input_delimiter):
         nrows += 1
@@ -62,7 +69,7 @@ def do_filter(ifile: TextIO, filterer: Filter, ofile: TextIO, value_column=0, in
 
 
 def main(argl=None, ofile=sys.stdout):
-    parser = ArgumentParser(description="Filter rows from an input CSV by applying a threshold to a column.")
+    parser = ArgumentParser(description="Filter rows from an input CSV by applying a threshold to a column.", epilog="KEY is set of columns and/or column ranges delimited by commas. For example, -k 0,3-5 specifies columns {0, 3, 4, 5}.")
     _common.add_logging_options(parser)
     parser.add_argument("input", nargs='?', help="input CSV file")
     parser.add_argument("--threshold", "-t", type=float, metavar='T', help="set threshold")
@@ -72,10 +79,11 @@ def main(argl=None, ofile=sys.stdout):
     parser.add_argument("--output-delimiter", default=',', help="set output delimiter")
     parser.add_argument("--column", "-c", default=0, type=int, help="set value column")
     parser.add_argument("--errors", choices=('exclude', 'include', 'auto'), help="set reaction to errors")
+    parser.add_argument("--output-columns", "-k", metavar="KEY", help="output columns")
     args = parser.parse_args(argl)
     _common.config_logging(args)
     input_delimiter = "\t" if args.input_delimiter is 'TAB' else args.input_delimiter
     output_delimiter = "\t" if args.output_delimiter is 'TAB' else args.output_delimiter
     f = Filter.from_args(args)
     with StreamContext(args.input, 'r') as ifile:
-        return do_filter(ifile, f, ofile, args.column, input_delimiter, output_delimiter, args.errors)
+        return do_filter(ifile, f, ofile, args.column, input_delimiter, output_delimiter, args.errors, args.output_columns)

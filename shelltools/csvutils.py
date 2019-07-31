@@ -83,3 +83,39 @@ def build_parse_value(value_type: type, invert: bool) -> Callable[[str], Any]:
     if invert:
         return lambda x: -(value_type(x))
     return value_type
+
+
+def _to_range(spec_part: str, col_max: int = 256):
+    if spec_part.startswith('-') and spec_part.endswith('-'):
+        return range(int(spec_part.rstrip('-')), 0)
+    if spec_part.startswith('-'):
+        return range(int(spec_part), int(spec_part) + 1)
+    if spec_part.endswith('-'):
+        return range(int(spec_part.rstrip('-')), col_max)
+    if '-' in spec_part:
+        min_val, almost_max = spec_part.split('-')
+        return range(int(min_val), int(almost_max) + 1)
+    return range(int(spec_part), int(spec_part) + 1)
+
+
+def parse_column_spec(spec: str) -> Callable[[list], List[int]]:
+    """Parses a column specification into a callable that returns list of indexes for a given row.
+    The specification must be a comma-delimited sequence of columns and column ranges. Ranges are
+    specified by separating inclusive minimum and maximum with a hyphen, e.g. '3-7'. Negative single
+    values specify from-the-end indexes, but cannot be used in ranges.
+    """
+    if spec is None:
+        return lambda row: list(range(len(row)))
+    portions = spec.split(',')
+    for portion in portions:
+        if len(list(filter(lambda ch: ch == '-', portion))) > 1:
+            raise ValueError("at most one '-' character per column specification part is permitted")
+    ranges = [_to_range(portion) for portion in portions]
+
+    def get_indexes(row: list):
+        all_indexes = range(len(row))
+        some_indexes = []
+        for _range in ranges:
+            some_indexes += [i for i in _range if ((0 <= i < len(row)) or (0 > i >= -len(row)))]
+        return some_indexes
+    return get_indexes

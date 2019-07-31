@@ -79,3 +79,24 @@ class ModuleMethodsTest(TestCase):
             parse_value = csvutils.build_parse_value(value_type, invert)
             actual = parse_value(token)
             self.assertEqual(expected, actual)
+
+    def test_parse_column_spec(self):
+        test_cases = [
+            ('2', 'abcdef', 'c'),
+            ('2,3', 'abcdef', 'cd'),
+            ('2,4-6', 'abcdefghij', 'cefg'),
+            ('4-', 'abcdefghij', 'efghij'),
+            ('-3', 'abcdefghij', 'h'),
+            ('-3,-5', 'abcdefghij', 'hf'),
+            ('1,9', 'abcdef', 'b'),
+            ('1,-9', 'abcdef', 'b'),
+            ('0,-6', 'abcdef', 'aa'),
+        ]
+        for spec, items, expected in test_cases:
+            with self.subTest():
+                fn = csvutils.parse_column_spec(spec)
+                inlist = list(items)
+                expected_list = list(expected)
+                indexes = fn(inlist)
+                actual_list = [inlist[i] for i in indexes]
+                self.assertListEqual(expected_list, actual_list)
