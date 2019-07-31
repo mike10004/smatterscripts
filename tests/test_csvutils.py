@@ -1,23 +1,22 @@
 import logging
 from unittest import TestCase
 
-import calculation
-from calculation import _IDENTITY
+from shelltools import csvutils
 
 _log = logging.getLogger(__name__)
 
 
 class ModuleMethodsTest(TestCase):
 
-    def test__IDENTITY(self, identity=_IDENTITY, test_cases=(None, 0, -1, 1, float('inf'), -0.5, 0.5, 'x')):
+    def test__IDENTITY(self, identity=csvutils._IDENTITY, test_cases=(None, 0, -1, 1, float('inf'), -0.5, 0.5, 'x')):
         with self.subTest():
             for x in test_cases:
                 y = identity(x)
                 self.assertIs(x, y)
 
     def test__make_clamp_None(self):
-        actual = calculation.make_clamp(None, float)
-        self.assertIs(_IDENTITY, actual)
+        actual = csvutils.make_clamp(None, float)
+        self.assertIs(csvutils._IDENTITY, actual)
 
     def test__make_clamp_inf(self):
         bounds = '0', 'inf'
@@ -31,7 +30,7 @@ class ModuleMethodsTest(TestCase):
             (float('-inf'), 0),
             (float('inf'), float('inf')),
         ]
-        clamp = calculation.make_clamp(bounds, float)
+        clamp = csvutils.make_clamp(bounds, float)
         for val, expected in test_cases:
             actual = clamp(val)
             self.assertEqual(expected, actual)
@@ -49,7 +48,7 @@ class ModuleMethodsTest(TestCase):
             (float('inf'), 0),
             (float('-inf'), float('-inf')),
         ]
-        clamp = calculation.make_clamp(bounds, float)
+        clamp = csvutils.make_clamp(bounds, float)
         for val, expected in test_cases:
             actual = clamp(val)
             self.assertEqual(expected, actual)
@@ -63,7 +62,7 @@ class ModuleMethodsTest(TestCase):
             (0.5, 0.5),
             (0.6, 0.5),
         ]
-        clamp = calculation.make_clamp(bounds, float)
+        clamp = csvutils.make_clamp(bounds, float)
         for val, expected in test_cases:
             actual = clamp(val)
             self.assertEqual(expected, actual)
@@ -77,6 +76,6 @@ class ModuleMethodsTest(TestCase):
             (int, True, '-1', 1),
         ]
         for value_type, invert, token, expected in test_cases:
-            parse_value = calculation.build_parse_value(value_type, invert)
+            parse_value = csvutils.build_parse_value(value_type, invert)
             actual = parse_value(token)
             self.assertEqual(expected, actual)

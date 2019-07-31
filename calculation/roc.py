@@ -3,18 +3,14 @@
 """Perform receiver-operating characteristic transform on input values."""
 
 import csv
-import re
-import os
 import sys
-import json
-import errno
 import logging
 import _common
-import calculation
 from _common import predicates
 from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence, Tuple, Optional, Union, Iterable, Iterator
 from argparse import ArgumentParser, Namespace
-from . import ValueParser, Ignorer
+from shelltools import csvutils
+from shelltools.csvutils import ValueParser, Ignorer
 
 
 _log = logging.getLogger(__name__)
@@ -89,7 +85,7 @@ def main(argl: Sequence[str]=None, ofile: TextIO=sys.stdout) -> 0:
     _common.config_logging(args)
     value_type = float
     invert = args.invert
-    parse_fn = calculation.build_parse_value(value_type, invert)
+    parse_fn = csvutils.build_parse_value(value_type, invert)
     value_parser = ValueParser(parse_fn, predicates.always_true())
     with open(args.known_positives, 'r') as ifile:
         known_positives = value_parser.read_values(ifile)

@@ -3,18 +3,12 @@
 """Filter an input CSV by applying a threshold to a certain column."""
 
 import csv
-import re
-import os
 import sys
-import json
-import errno
 import logging
 import _common
-import calculation
 from _common import StreamContext
-from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence, Tuple, Optional, Union, Iterable, Iterator
+from typing import TextIO
 from argparse import ArgumentParser, Namespace
-from . import ValueParser, Ignorer
 
 
 _log = logging.getLogger(__name__)
@@ -65,8 +59,6 @@ def do_filter(ifile: TextIO, filterer: Filter, ofile: TextIO, value_column=0, in
     if nerrors > 0:
         _log.info("%d errors encountered; use --log-level=DEBUG to view them", nerrors)
     return 0 if (nerrors != nrows) else 2
-
-
 
 
 def main(argl=None, ofile=sys.stdout):

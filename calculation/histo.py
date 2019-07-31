@@ -16,15 +16,15 @@ import json
 import errno
 import logging
 import _common
-import calculation
 from _common import redaction
 from typing import Callable, TextIO, List, Any, Pattern, Dict, Sequence
 from argparse import ArgumentParser, Namespace
-from . import ValueParser, Ignorer
+from shelltools import csvutils
+from shelltools.csvutils import ValueParser, Ignorer
 
 
 _log = logging.getLogger(__name__)
-_IDENTITY = calculation._IDENTITY
+_IDENTITY = csvutils._IDENTITY
 _ACCUM_NONE = 'none'
 _ACCUM_INCREASE = 'increase'
 _ACCUM_COMPLEMENT = 'complement'
@@ -38,9 +38,7 @@ def get_bin_spec(values, args):
         binstep = ((max(values) + args.epsilon) - binmin) / numbins
     else:
         binmin, binstep = [args.value_type(x) for x in args.bins]
-    _log.debug(" bin spec: (%s, %s, %s) (%s, %s, %s); args.value_type = %s" % 
-            (str(binmin), str(binstep), str(numbins), 
-            str(type(binmin)), str(type(binstep)), str(type(numbins)), str(args.value_type)))
+    _log.debug(" bin spec: (%s, %s, %s) (%s, %s, %s); args.value_type = %s", binmin, binstep, numbins, type(binmin), type(binstep), type(numbins), args.value_type)
     return binmin, binstep, numbins
 
 
@@ -159,10 +157,10 @@ def _to_freq(n: int, accumulation: int, total: int, mode: str):
 
 def print_histo(args: Namespace, ofile: TextIO=sys.stdout):
     config = read_config(args)
-    parse_value = calculation.build_parse_value(args.value_type, args.invert)
+    parse_value = csvutils.build_parse_value(args.value_type, args.invert)
     value_filter = build_value_filter(config, args)
     mal_decision = _make_mal_decision(args.malformed)
-    clamp = calculation.make_clamp(args.clamp, args.value_type)
+    clamp = csvutils.make_clamp(args.clamp, args.value_type)
     value_parser = ValueParser(parse_value, value_filter, mal_decision, clamp)
     if args.valuesfile is None or args.valuesfile == '-':
         print("histo: reading values from standard input", file=sys.stderr)
